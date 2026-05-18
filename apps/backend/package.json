@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "test": "vitest",
-    "test:run": "vitest --run",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
