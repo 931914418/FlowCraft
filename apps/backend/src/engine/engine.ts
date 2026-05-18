@@ -54,10 +54,6 @@ export class WorkflowEngine {
 
           if (result.status === 'fulfilled' && result.value) {
             context.nodeOutputs.set(nodeId, result.value.output)
-            context.variables.set(
-              `${nodeId}.output`,
-              typeof result.value.output === 'string' ? result.value.output : JSON.stringify(result.value.output),
-            )
             totalTokens += result.value.tokens
 
             const dagNode = dag.nodes.get(nodeId)
@@ -105,7 +101,7 @@ export class WorkflowEngine {
 
     if (dagNode.type === 'end') {
       const output = dagNode.config.output
-        ? renderTemplate(String(dagNode.config.output), context.variables)
+        ? renderTemplate(String(dagNode.config.output), context)
         : context.nodeOutputs.size > 0
           ? Object.fromEntries(context.nodeOutputs)
           : { message: 'completed' }

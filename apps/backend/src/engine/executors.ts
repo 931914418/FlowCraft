@@ -9,9 +9,21 @@ export interface ExecutionContext {
   nodeOutputs: Map<string, unknown>
 }
 
-export function renderTemplate(template: string, context: Map<string, unknown>): string {
+// 从 nodeOutputs 派生变量值
+export function resolveVariable(key: string, context: ExecutionContext): unknown {
+  // 如果是 nodeId.output 格式，从 nodeOutputs 取值
+  if (key.endsWith('.output')) {
+    const nodeId = key.slice(0, -'.output'.length)
+    return context.nodeOutputs.get(nodeId)
+  }
+  // 否则从 variables 取（branches, input 等）
+  return context.variables.get(key)
+}
+
+// renderTemplate 使用 resolveVariable 统一查找
+export function renderTemplate(template: string, context: ExecutionContext): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
-    const value = context.get(key.trim())
+    const value = resolveVariable(key.trim(), context)
     if (value === undefined) return `{{${key}}}`
     if (typeof value === 'object') return JSON.stringify(value)
     return String(value)
@@ -46,14 +58,14 @@ function getModelSdk(model: string) {
 export class LLMExecutor implements NodeExecutor {
   async execute(node: DAGNode, context: ExecutionContext, signal?: AbortSignal) {
     const { model, prompt, system, temperature } = node.config as Record<string, any>
-    const renderedPrompt = renderTemplate(String(prompt || ''), context.variables)
+    const renderedPrompt = renderTemplate(String(prompt || ''), context)
 
     const sdk = getModelSdk(String(model || 'gpt-4o'))
 
     const result = await generateText({
       model: sdk,
       prompt: renderedPrompt,
-      system: system ? renderTemplate(String(system), context.variables) : undefined,
+      system: system ? renderTemplate(String(system), context) : undefined,
       temperature: Number(temperature) || 0.7,
       abortSignal: signal,
     })
@@ -141,7 +153,7 @@ export class CodeExecutor implements NodeExecutor {
 export class HttpExecutor implements NodeExecutor {
   async execute(node: DAGNode, context: ExecutionContext, signal?: AbortSignal) {
     const { url, method, headers, body } = node.config as Record<string, any>
-    const renderedUrl = renderTemplate(String(url || ''), context.variables)
+    const renderedUrl = renderTemplate(String(url || ''), context)
 
     const parsed = new URL(renderedUrl)
     const blockedHosts = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0)/i
@@ -156,7 +168,7 @@ export class HttpExecutor implements NodeExecutor {
     }
 
     if (body && method !== 'GET' && method !== 'HEAD') {
-      fetchOptions.body = renderTemplate(JSON.stringify(body), context.variables)
+      fetchOptions.body = renderTemplate(JSON.stringify(body), context)
     }
 
     const response = await fetch(renderedUrl, fetchOptions)
