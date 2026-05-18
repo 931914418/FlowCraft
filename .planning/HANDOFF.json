@@ -1,48 +1,45 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-18T16:14:43Z",
+  "timestamp": "2026-05-19T18:30:00Z",
   "phase": null,
-  "phase_name": "FlowCraft v2 Pre-Phase 1 (Design + Review Complete)",
+  "phase_name": "FlowCraft v2 Pre-Phase 1 (Design + Review + Frontend Redesign Complete)",
   "phase_dir": ".",
   "plan": null,
-  "task": 7,
-  "total_tasks": 11,
+  "task": 8,
+  "total_tasks": 12,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "Fix SSE connection and event display", "status": "done", "commit": "engine.ts + workflow.ts + workflow.ts frontend fixes"},
+    {"id": 1, "name": "Fix SSE connection and event display", "status": "done"},
     {"id": 2, "name": "Test all node types (LLM/HTTP/Code/Condition)", "status": "done"},
     {"id": 3, "name": "Evaluate project value and user audience", "status": "done"},
     {"id": 4, "name": "Brainstorm v2 direction (AI-native, dual-mode)", "status": "done", "commit": "228215b"},
     {"id": 5, "name": "Write v2 design document", "status": "done", "commit": "228215b"},
     {"id": 6, "name": "Write v2 implementation spec (SDD)", "status": "done", "commit": "26e74c2"},
-    {"id": 7, "name": "/autoplan full review (CEO + Design + Eng + DX)", "status": "done"}
+    {"id": 7, "name": "/autoplan full review (CEO + Design + Eng + DX)", "status": "done", "commit": "7af234a"},
+    {"id": 8, "name": "PropertyPanel v2 redesign + ListView homepage", "status": "done", "commit": "cbafe75"}
   ],
   "remaining_tasks": [
-    {"id": 8, "name": "Phase 1: Fix data contract + Condition visualization (3-4 days)", "status": "not_started"},
-    {"id": 9, "name": "Phase 2: HTTP test + Webhook trigger (3-4 days)", "status": "not_started"},
-    {"id": 10, "name": "Phase 3: Data mapper node (3-4 days)", "status": "not_started"},
-    {"id": 11, "name": "Phase 4: AI assistant (4-5 days)", "status": "not_started"},
-    {"id": 12, "name": "Phase 5: AI processor + mode switch (2-3 days)", "status": "not_started"}
+    {"id": 9, "name": "Phase 1: Fix data contract + Condition V2 executor (3-4 days)", "status": "not_started"},
+    {"id": 10, "name": "Phase 2: HTTP test + Webhook trigger (3-4 days)", "status": "not_started"},
+    {"id": 11, "name": "Phase 3: Data mapper node (3-4 days)", "status": "not_started"},
+    {"id": 12, "name": "Phase 4: AI assistant (4-5 days)", "status": "not_started"},
+    {"id": 13, "name": "Phase 5: AI processor + mode switch (2-3 days)", "status": "not_started"}
   ],
   "blockers": [],
   "human_actions_pending": [],
   "decisions": [
     {"decision": "Product positioning: AI-native workflow platform", "rationale": "Only direction that differentiates from n8n/Make/Zapier", "phase": 0},
     {"decision": "Dual mode: simple (default) + advanced (per-node upgrade)", "rationale": "Serves both non-technical and technical users; node-level progressive avoids upfront decision anxiety", "phase": 0},
-    {"decision": "Data processing: Data Mapper (visual) + AI Processor (LLM) replace Code node in simple mode", "rationale": "Simple things should be fast (mapper), complex things should be easy (AI); tested that LLM can replace Code for data extraction", "phase": 0},
-    {"decision": "Webhook trigger instead of built-in cron", "rationale": "Two birds one stone; external cron services can call webhook; no scheduler needed", "phase": 0},
-    {"decision": "HTTP node: keep generic + add test button", "rationale": "API templates are premature; test button solves the biggest pain point with minimal code", "phase": 0},
     {"decision": "nodeOutputs = single source of truth, variables = derived view", "rationale": "Autoplan eng review found dual storage creates divergence bugs", "phase": 0},
-    {"decision": "Condition V1/V2 dual executor strategy (not auto-migration)", "rationale": "Autoplan eng review found v1 expression cannot be deterministically migrated to v2 format; v1 expressions reference flat variables map, not node-scoped outputs", "phase": 0},
-    {"decision": "AI-generated workflows must never contain code nodes (server-side enforcement)", "rationale": "Autoplan eng review flagged RCE risk: AI gen + code executor = arbitrary JS execution on server", "phase": 0},
-    {"decision": "Webhook route exempt from API_AUTH_KEY, mandatory webhook secret", "rationale": "External services (GitHub, Slack) cannot send x-api-key header; webhook path alone is not sufficient security", "phase": 0},
+    {"decision": "Condition V1/V2 dual executor strategy (not auto-migration)", "rationale": "v1 expression cannot be deterministically migrated to v2 format", "phase": 0},
+    {"decision": "AI-generated workflows must never contain code nodes (server-side enforcement)", "rationale": "RCE risk: AI gen + code executor = arbitrary JS execution on server", "phase": 0},
+    {"decision": "Webhook route exempt from API_AUTH_KEY, mandatory webhook secret", "rationale": "External services cannot send x-api-key header; webhook path alone is not sufficient security", "phase": 0},
     {"decision": "Per-execution EventEmitter instead of global singleton", "rationale": "Autoplan eng review found listener leak under concurrent load", "phase": 0},
-    {"decision": "DB upsert: change tokens? to tokens !== undefined", "rationale": "tokens=0 is falsy, causing non-LLM executors to skip tokens update", "phase": 0}
+    {"decision": "PropertyPanel modular editor architecture", "rationale": "Per-node-type independent editors enable parallel development and easy iteration", "phase": 0},
+    {"decision": "Condition: single rule (field+operator+value) with optional dynamic field dropdown", "rationale": "Covers 80% use cases; AND/OR can be added later without architecture change", "phase": 0},
+    {"decision": "HTTP headers stored as KV array (not JSON string)", "rationale": "Visual editor needs structured data; JSON string was user-unfriendly", "phase": 0}
   ],
-  "uncommitted_files": [
-    "apps/backend/src/engine/engine.ts",
-    "apps/frontend/src/api/workflow.ts"
-  ],
-  "next_action": "Start Phase 1 implementation: (1) Redesign nodeOutputs/variables in engine.ts as single source + derived view, (2) Add integration test framework, (3) Implement Condition V2 executor with dual-format support, (4) Build Condition visual frontend panel",
-  "context_notes": "Session covered: (1) /gsd-resume-work restored context from HANDOFF.json, (2) /autoplan ran full 4-phase review (CEO + Design + Eng + DX) with Claude subagent (Codex unavailable due to GLM provider API incompatibility), (3) 31 decisions made (28 auto, 2 taste, 1 user-confirmed), (4) Key artifacts: test plan at ~/.gstack/projects/FlowCraft/FlowCraft-master-test-plan-20260519.md, decision audit at ~/.gstack/projects/FlowCraft/FlowCraft-master-autoplan-decisions-20260519.md. Critical eng findings: data contract divergence risk, Condition migration impossibility, AI gen RCE, webhook security gaps."
+  "uncommitted_files": [],
+  "next_action": "Start Phase 1 backend: (1) Redesign nodeOutputs/variables in engine.ts as single source + derived view, (2) Add integration test framework, (3) Implement Condition V2 executor with dual-format support. Frontend ConditionEditor already supports new config format (field/operator/value/expression).",
+  "context_notes": "Session covered: (1) /gsd-resume-work restored context from previous HANDOFF.json, (2) User asked about frontend redesign necessity, (3) Brainstormed PropertyPanel v2 redesign with 5 design questions, (4) Wrote full implementation plan (12 tasks), (5) Executed all 12 tasks — PropertyPanel shell + 6 editors + shared components + new node types + ListView redesign + visual polish, (6) Full frontend-backend integration test passed (CRUD + Condition new format + HTTP KV headers + LLM config + execution). Key artifacts: design doc at docs/plans/2026-05-19-property-panel-redesign.md. Dev servers: frontend at :5175, backend at :3002 (PostgreSQL on :5432)."
 }
