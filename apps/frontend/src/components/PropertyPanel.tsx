@@ -29,10 +29,11 @@ export function PropertyPanel({ node, onUpdate, onClose }: PropertyPanelProps) {
 
   // Reset state when node changes
   useEffect(() => {
+    const newConfig = getNodeConfig(node)
     setLocalLabel(label)
-    setLocalConfig({ ...getNodeConfig(node) })
+    setLocalConfig({ ...newConfig })
     setDirty(false)
-  }, [node.id, label]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [node.id]) // Only reset when node ID changes
 
   const handleChange = useCallback((key: string, value: unknown) => {
     setLocalConfig((prev) => ({ ...prev, [key]: value }))

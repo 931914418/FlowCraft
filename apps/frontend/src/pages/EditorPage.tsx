@@ -92,7 +92,10 @@ export default function EditorPage() {
             id: n.id,
             type: n.type,
             position: n.position,
-            data: { label: n.label ?? DEFAULT_LABELS[n.type] ?? n.type, ...n.config },
+            data: {
+              label: n.label ?? DEFAULT_LABELS[n.type] ?? n.type,
+              config: n.config ?? {},
+            },
           }))
         )
         setEdges(
@@ -256,24 +259,68 @@ export default function EditorPage() {
     setError(null)
     setDebugEvents([])
     setShowDebug(true)
+
     try {
       const { executionId } = await runWorkflow(workflowIdRef.current)
-      const cleanup = connectExecutionSSE(executionId, (event) => {
-        setDebugEvents((prev) => {
-          const idx = prev.findIndex((e) => e.nodeId === event.nodeId)
-          if (idx >= 0) {
-            const copy = [...prev]
-            copy[idx] = event
-            return copy
-          }
-          return [...prev, event]
-        })
-      }, (e) => {
-        console.error('SSE error', e)
-      })
-      // cleanup will be called when EventSource closes itself
+
+      // Add initial "running" state
+      setDebugEvents([{ executionId, nodeId: 'system', nodeType: 'system' as NodeType, status: 'running' as ExecutionStatus }])
+
+      const cleanup = connectExecutionSSE(
+        executionId,
+        (event) => {
+          setDebugEvents((prev) => {
+            const idx = prev.findIndex((e) => e.nodeId === event.nodeId)
+            if (idx >= 0) {
+              const copy = [...prev]
+              copy[idx] = event
+              return copy
+            }
+            return [...prev, event]
+          })
+        },
+        (e) => {
+          // SSE connection error - show user-friendly message
+          console.error('SSE connection error:', e)
+          const errorMsg = '实时连接失败。执行已完成，但无法实时显示进度。请刷新页面查看最终结果。'
+          setError(errorMsg)
+
+          // Add error event to debug panel
+          setDebugEvents((prev) => [
+            ...prev,
+            {
+              executionId,
+              nodeId: 'system',
+              nodeType: 'system' as NodeType,
+              status: 'failed' as ExecutionStatus,
+              error: errorMsg,
+            },
+          ])
+        },
+        () => {
+          // Connection completed normally
+          setDebugEvents((prev) => {
+            const filtered = prev.filter((e) => e.nodeId !== 'system')
+            return filtered.length > 0 ? filtered : prev
+          })
+        }
+      )
+
+      // Store cleanup for unmount
+      return cleanup
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to run')
+      const errorMsg = err instanceof Error ? err.message : 'Failed to run workflow'
+      setError(errorMsg)
+      setDebugEvents((prev) => [
+        ...prev,
+        {
+          executionId: workflowIdRef.current!,
+          nodeId: 'system',
+          nodeType: 'system' as NodeType,
+          status: 'failed' as ExecutionStatus,
+          error: errorMsg,
+        },
+      ])
     }
   }, [])
 

@@ -91,7 +91,11 @@ workflowRoutes.get('/execution/:executionId/stream', async (c) => {
       }),
     })
 
-    if (execution.status === 'completed' || execution.status === 'failed') return
+    // If execution is already completed/failed, send end event and close
+    if (execution.status === 'completed' || execution.status === 'failed') {
+      await stream.writeSSE({ event: 'end', data: JSON.stringify({ status: execution.status }) })
+      return
+    }
 
     const nodeHandler = (data: unknown) => {
       stream.writeSSE({ event: 'node', data: JSON.stringify(data) }).catch(() => {})

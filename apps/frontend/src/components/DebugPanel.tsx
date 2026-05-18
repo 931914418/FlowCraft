@@ -20,7 +20,23 @@ export function DebugPanel({ events }: DebugPanelProps) {
   if (events.length === 0) {
     return (
       <div className="flex items-center justify-center p-6 text-sm text-neutral-400">
-        No execution data yet. Run the workflow to see results.
+        🔄 点击 Run 按钮开始执行工作流...
+      </div>
+    )
+  }
+
+  // Check if there's a system error
+  const systemError = events.find(e => e.nodeId === 'system' && e.status === 'failed')
+  if (systemError && events.length === 1) {
+    return (
+      <div className="p-4">
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <div className="font-medium">⚠️ 连接失败</div>
+          <div className="mt-1">{systemError.error || '无法连接到执行服务器'}</div>
+          <div className="mt-2 text-xs text-red-600">
+            提示：工作流可能已在后台执行完成。请刷新页面查看最新结果。
+          </div>
+        </div>
       </div>
     )
   }

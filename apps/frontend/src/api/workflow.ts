@@ -81,29 +81,82 @@ export async function runWorkflow(id: string): Promise<{ executionId: string }> 
 export function connectExecutionSSE(
   executionId: string,
   onEvent: (event: NodeExecutionEvent) => void,
-  onError?: (error: Event) => void
+  onError?: (error: Event) => void,
+  onComplete?: () => void
 ): () => void {
-  const source = new EventSource(`/api/workflows/execution/${executionId}/stream`)
+  const BACKEND_URL = 'http://localhost:3002'
+  const url = `${BACKEND_URL}/api/workflows/execution/${executionId}/stream`
+  let aborted = false
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
 
-  source.onmessage = (e) => {
-    try {
-      const data = JSON.parse(e.data) as NodeExecutionEvent
-      onEvent(data)
-    } catch {
-      // ignore malformed events
-    }
-  }
-
-  source.addEventListener('complete', () => {
-    source.close()
+  // Use fetch + ReadableStream instead of EventSource for better compatibility
+  fetch(url, {
+    headers: {
+      'Accept': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+    },
   })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
 
-  source.onerror = (e) => {
-    onError?.(e)
-    source.close()
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('Response body is null')
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (!aborted) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.trim() === '') continue
+
+          const [event, ...dataParts] = line.split(':')
+          const data = dataParts.join(':').trim()
+
+          if (data) {
+            try {
+              const parsed = JSON.parse(data)
+
+              // Handle different event types
+              if (event === 'end') {
+                onComplete?.()
+                return
+              } else if (event === 'status' || event === 'node') {
+                // Extract node events from status data
+                if (parsed.nodes && Array.isArray(parsed.nodes)) {
+                  parsed.nodes.forEach((node: NodeExecutionEvent) => {
+                    onEvent(node)
+                  })
+                }
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data:', data, e)
+            }
+          }
+        }
+      }
+    })
+    .catch((err) => {
+      if (!aborted) {
+        console.error('SSE fetch error:', err)
+        onError?.(err as Event)
+      }
+    })
+
+  return () => {
+    aborted = true
+    if (timeoutId) clearTimeout(timeoutId)
   }
-
-  return () => source.close()
 }
 
 export { ApiError }
