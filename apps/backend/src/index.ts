@@ -6,11 +6,16 @@ import { logger } from 'hono/logger'
 import { workflowRoutes } from './routes/workflows'
 import { toolRoutes } from './routes/tools'
 import { modelRoutes } from './routes/models'
+import testRoutes from './routes/test'
+import webhookRoutes from './routes/webhook'
 
 const app = new Hono()
 
 app.use('*', logger())
 app.use('*', cors({ origin: ['http://localhost:5175', 'http://localhost:3002'] }))
+
+// Webhook 路由在认证中间件之前注册，外部服务无法发送自定义 API key header
+app.route('/api/hooks', webhookRoutes)
 
 const authKey = process.env.API_AUTH_KEY
 if (authKey) {
@@ -26,6 +31,7 @@ if (authKey) {
 app.route('/api/workflows', workflowRoutes)
 app.route('/api/tools', toolRoutes)
 app.route('/api/models', modelRoutes)
+app.route('/api/test', testRoutes)
 
 app.get('/health', (c) => c.json({ status: 'ok' }))
 

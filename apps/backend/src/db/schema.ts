@@ -8,6 +8,8 @@ export const workflowDefinitions = pgTable('workflow_definition', {
   version: integer('version').default(1),
   triggerType: varchar('trigger_type', { length: 20 }).default('manual'),
   cronExpression: varchar('cron_expression', { length: 100 }),
+  webhookPath: varchar('webhook_path', { length: 50 }).unique(),
+  webhookSecret: varchar('webhook_secret', { length: 100 }),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })
