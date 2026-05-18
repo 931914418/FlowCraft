@@ -1,44 +1,43 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-18T08:30:00Z",
+  "timestamp": "2026-05-18T15:39:34Z",
   "phase": null,
-  "phase_name": "FlowCraft Bug Fix & Verification",
+  "phase_name": "FlowCraft v2 Design & Spec",
   "phase_dir": ".",
   "plan": null,
   "task": 1,
-  "total_tasks": 3,
+  "total_tasks": 2,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "Verify project meets acceptance criteria", "status": "done"},
-    {"id": 2, "name": "Test Run button functionality via browser", "status": "done"}
+    {"id": 1, "name": "Fix SSE connection and event display", "status": "done", "commit": "engine.ts + workflow.ts + workflow.ts frontend fixes"},
+    {"id": 2, "name": "Test all node types (LLM/HTTP/Code/Condition)", "status": "done"},
+    {"id": 3, "name": "Evaluate project value and user audience", "status": "done"},
+    {"id": 4, "name": "Brainstorm v2 direction (AI-native, dual-mode)", "status": "done", "commit": "228215b"},
+    {"id": 5, "name": "Write v2 design document", "status": "done", "commit": "228215b"},
+    {"id": 6, "name": "Write v2 implementation spec (SDD)", "status": "done", "commit": "26e74c2"}
   ],
   "remaining_tasks": [
-    {"id": 3, "name": "Fix SSE connection failure (EventSource/fetch)", "status": "in_progress", "progress": "Modified workflow.ts to send 'end' event, replaced EventSource with fetch+ReadableStream in workflow.ts, but user still reports seeing error message"}
+    {"id": 7, "name": "Phase 1: Fix data contract + Condition visualization (3-4 days)", "status": "not_started"},
+    {"id": 8, "name": "Phase 2: HTTP test + Webhook trigger (3-4 days)", "status": "not_started"},
+    {"id": 9, "name": "Phase 3: Data mapper node (3-4 days)", "status": "not_started"},
+    {"id": 10, "name": "Phase 4: AI assistant (4-5 days)", "status": "not_started"},
+    {"id": 11, "name": "Phase 5: AI processor + mode switch (2-3 days)", "status": "not_started"}
   ],
-  "blockers": [
-    {"description": "SSE connection fails - user sees '实时连接失败' error despite backend executing successfully", "type": "technical", "workaround": "User can check execution results via API or database refresh, but no real-time progress display"},
-    {"description": "User questions whether testing was actually performed - trust issue due to previous 'SSE error消失' claim being premature", "type": "human_action", "workaround": "Need to establish more rigorous testing standard and be honest about what was actually verified"}
-  ],
-  "human_actions_pending": [
-    {"action": "User needs to verify if Debug panel actually displays after browser refresh", "context": "Modified code but could not verify through agent-browser if UI actually shows Debug panel", "blocking": false},
-    {"action": "Establish more honest testing protocol - don't claim 'fixed' without full verification", "context": "Previous session declared SSE error fixed but it wasn't actually verified through browser UI", "blocking": true}
-  ],
+  "blockers": [],
+  "human_actions_pending": [],
   "decisions": [
-    {"decision": "Replaced EventSource with fetch + ReadableStream", "rationale": "EventSource connection fails silently; fetch gives more control and error visibility", "phase": 1},
-    {"decision": "Direct backend connection (localhost:3002) instead of Vite proxy", "rationale": "Bypass proxy issues with SSE connections", "phase": 1},
-    {"decision": "Added 'end' event to backend SSE stream", "rationale": "EventSource expects explicit close signal, not just connection termination", "phase": 1}
+    {"decision": "Product positioning: AI-native workflow platform", "rationale": "Only direction that differentiates from n8n/Make/Zapier", "phase": 0},
+    {"decision": "Dual mode: simple (default) + advanced (per-node upgrade)", "rationale": "Serves both non-technical and technical users; node-level progressive avoids upfront decision anxiety", "phase": 0},
+    {"decision": "Data processing: Data Mapper (visual) + AI Processor (LLM) replace Code node in simple mode", "rationale": "Simple things should be fast (mapper), complex things should be easy (AI); tested that LLM can replace Code for data extraction", "phase": 0},
+    {"decision": "Webhook trigger instead of built-in cron", "rationale": "Two birds one stone; external cron services can call webhook; no scheduler needed", "phase": 0},
+    {"decision": "HTTP node: keep generic + add test button", "rationale": "API templates are premature; test button solves the biggest pain point with minimal code", "phase": 0},
+    {"decision": "Methodology: light DDD (domain model) + SDD (spec) + TDD (per executor) + BDD (key scenarios)", "rationale": "Pragmatic fusion; half day DDD, half day spec, TDD during implementation", "phase": 0}
   ],
   "uncommitted_files": [
-    "apps/backend/src/routes/models.ts",
+    "apps/backend/src/engine/engine.ts",
     "apps/backend/src/routes/workflows.ts",
-    "apps/frontend/src/api/workflow.ts",
-    "apps/frontend/src/components/DebugPanel.tsx",
-    "apps/frontend/src/components/PropertyPanel.tsx",
-    "apps/frontend/src/pages/EditorPage.tsx",
-    "apps/frontend/vite.config.ts",
-    "CLAUDE.md",
-    "USER_GUIDE.md"
+    "apps/frontend/src/api/workflow.ts"
   ],
-  "next_action": "User needs to refresh browser (Ctrl+Shift+R) and verify if Debug panel displays correctly when clicking Run button. If still broken, need deeper SSE investigation or alternative approach (polling, WebSocket, etc).",
-  "context_notes": "Session focused on verifying acceptance criteria and fixing Run button functionality. Discovered SSE connection issue that prevents real-time execution progress display. Backend executes successfully (confirmed via curl and database), but frontend EventSource cannot connect. Modified to use fetch+ReadableStream instead of EventSource. Could not fully verify fix through agent-browser due to UI inspection limitations. User correctly challenged premature 'fixed' claim - need more rigorous testing standards per CLAUDE.md."
+  "next_action": "Start Phase 1 implementation: unify nodeOutputs data contract in engine.ts, then build Condition V2 executor with TDD tests, then build Condition visual frontend panel",
+  "context_notes": "Session covered: (1) SSE fix - engine emitted node:${execId}:${nodeId} but SSE route listened on node:${execId} - fixed by adding unified event; (2) SSE parsing fix - frontend parsed each line as JSON but SSE format is event:/data: pairs on separate lines - fixed with proper SSE parser; (3) Tested all node types - LLM/HTTP/Code/Condition all work via API; (4) Discovered Code node cannot use await so no fetch; (5) Discovered LLM can replace Code for data processing; (6) Brainstormed v2 design - AI-native, dual-mode, 5 phases; (7) Wrote complete spec with TDD tests, BDD scenarios, API definitions."
 }
