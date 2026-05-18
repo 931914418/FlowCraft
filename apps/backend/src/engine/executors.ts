@@ -76,7 +76,19 @@ export class LLMExecutor implements NodeExecutor {
 
 export class ConditionExecutor implements NodeExecutor {
   async execute(node: DAGNode, context: ExecutionContext) {
-    const { expression } = node.config as Record<string, any>
+    const config = node.config as Record<string, any>
+
+    // V2 格式：同时有 field 和 operator 属性
+    if (config.field && config.operator) {
+      return this.executeV2(config, context)
+    }
+
+    // V1 格式：expression 字符串
+    return this.executeV1(config, context)
+  }
+
+  private executeV1(config: Record<string, any>, context: ExecutionContext) {
+    const { expression } = config
     const input = context.variables.get('input') || {}
 
     let result = false
@@ -98,6 +110,40 @@ export class ConditionExecutor implements NodeExecutor {
       }
     } catch {
       result = false
+    }
+
+    return { output: { branch: String(result) }, tokens: 0 }
+  }
+
+  private executeV2(config: Record<string, any>, context: ExecutionContext) {
+    const field = config.field
+    const operator = String(config.operator)
+    const value = config.value
+
+    // 解析字段值
+    let fieldValue: unknown
+    if (typeof field === 'object' && field.sourceNodeId) {
+      // V2 完整格式：{ sourceNodeId, path }
+      const upstreamData = context.nodeOutputs.get(field.sourceNodeId)
+      fieldValue = field.path ? resolvePath(upstreamData, field.path) : upstreamData
+    } else if (typeof field === 'string' && field) {
+      // V2 简单格式：直接字符串字段名，从 input 中取值
+      const input = context.variables.get('input') || {}
+      fieldValue = resolvePath(input, field)
+    }
+
+    let result = false
+    switch (operator) {
+      case 'eq': result = fieldValue == value; break
+      case 'neq': result = fieldValue != value; break
+      case 'gt': result = Number(fieldValue) > Number(value); break
+      case 'lt': result = Number(fieldValue) < Number(value); break
+      case 'gte': result = Number(fieldValue) >= Number(value); break
+      case 'lte': result = Number(fieldValue) <= Number(value); break
+      case 'contains': result = String(fieldValue ?? '').includes(String(value)); break
+      case 'not_contains': result = !String(fieldValue ?? '').includes(String(value)); break
+      case 'empty': result = fieldValue == null || fieldValue === '' || fieldValue === undefined; break
+      case 'not_empty': result = fieldValue != null && fieldValue !== '' && fieldValue !== undefined; break
     }
 
     return { output: { branch: String(result) }, tokens: 0 }
