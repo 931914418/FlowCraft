@@ -35,6 +35,8 @@ export class WorkflowEngine {
       variables: new Map(Object.entries(input)),
       nodeOutputs: new Map(),
     }
+    // 将完整输入对象也存入 variables.input，供 start 节点和执行器使用
+    context.variables.set('input', input)
     let totalTokens = 0
     const skippedNodes = new Set<string>()
     let hasFailure = false
@@ -95,8 +97,10 @@ export class WorkflowEngine {
     const dagNode = dag.nodes.get(nodeId)!
 
     if (dagNode.type === 'start') {
-      await this.upsertNode(executionId, nodeId, 'completed')
-      return { output: null, tokens: 0 }
+      // 将工作流输入数据传递给下游节点，使 Condition V2 等执行器可以正确解析上游数据
+      const input = context.variables.get('input') || {}
+      await this.upsertNode(executionId, nodeId, 'completed', input)
+      return { output: input, tokens: 0 }
     }
 
     if (dagNode.type === 'end') {

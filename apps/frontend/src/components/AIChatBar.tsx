@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Sparkles, Loader2, Wand2 } from 'lucide-react'
+import { API_BASE } from '@/lib/api-config'
 
 export interface AIWorkflowResult {
   name: string
@@ -43,7 +44,7 @@ export function AIChatBar({ onGenerate, mode, onModeChange }: AIChatBarProps) {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/ai/generate-workflow', {
+      const res = await fetch(`${API_BASE}/ai/generate-workflow`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description: input.trim(), mode }),

@@ -27,12 +27,20 @@ interface WorkflowRow {
   id: string
   name: string
   definition: WorkflowDefinition
+  webhookPath?: string | null
+  webhookSecret?: string | null
   createdAt?: string
   updatedAt?: string
 }
 
 function unwrap(row: WorkflowRow): WorkflowDefinition {
-  return { ...row.definition, id: row.id, name: row.name }
+  return {
+    ...row.definition,
+    id: row.id,
+    name: row.name,
+    webhookPath: row.webhookPath ?? row.definition?.webhookPath,
+    webhookSecret: row.webhookSecret ?? row.definition?.webhookSecret,
+  }
 }
 
 export async function listWorkflows(): Promise<WorkflowDefinition[]> {

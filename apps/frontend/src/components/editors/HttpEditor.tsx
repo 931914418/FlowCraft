@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectItem } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Send, Loader2, Plus, Trash2 } from 'lucide-react'
+import { API_BASE } from '@/lib/api-config'
 
 interface NodeEditorProps {
   config: Record<string, unknown>
@@ -47,17 +48,25 @@ export function HttpEditor({ config, onChange, onBlur }: NodeEditorProps) {
     setTesting(true)
     setTestResult(null)
     try {
-      const start = Date.now()
       const headerObj: Record<string, string> = {}
       headers.forEach((h) => { if (h.key) headerObj[h.key] = h.value })
 
-      const res = await fetch(url, {
-        method,
-        headers: headerObj,
-        body: ['POST', 'PUT', 'PATCH'].includes(method) ? (config.body as string) ?? undefined : undefined,
+      const res = await fetch(`${API_BASE}/test/node`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodeType: 'http',
+          config: { url, method, headers: headerObj, body: config.body },
+        }),
       })
-      const body = await res.text()
-      setTestResult({ status: res.status, time: Date.now() - start, body: body.slice(0, 500) })
+      const data = await res.json()
+      setTestResult({
+        status: data.success ? 200 : 500,
+        time: data.durationMs || 0,
+        body: data.success
+          ? (typeof data.output === 'string' ? data.output.slice(0, 500) : JSON.stringify(data.output, null, 2).slice(0, 500))
+          : (data.error || 'Unknown error'),
+      })
     } catch (err) {
       setTestResult({ status: 0, time: 0, body: err instanceof Error ? err.message : 'Request failed' })
     } finally {

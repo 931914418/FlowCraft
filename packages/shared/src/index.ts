@@ -31,6 +31,8 @@ export interface WorkflowDefinition {
   name: string
   version?: number
   trigger?: { type: TriggerType; cron?: string }
+  webhookPath?: string
+  webhookSecret?: string
   nodes: WorkflowNode[]
   edges: WorkflowEdge[]
 }

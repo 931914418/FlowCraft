@@ -87,6 +87,7 @@ export default function EditorPage() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const reactFlowInstance = useRef<ReactFlowInstance>(null)
   const workflowIdRef = useRef<string | undefined>(id)
+  const sseCleanupRef = useRef<(() => void) | null>(null)
 
   const loadedRef = useRef(false)
 
@@ -140,6 +141,13 @@ export default function EditorPage() {
     if (!loadedRef.current) return
     setDirty(true)
   }, [nodes, edges]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 组件卸载时清理 SSE 连接
+  useEffect(() => {
+    return () => {
+      sseCleanupRef.current?.()
+    }
+  }, [])
 
   // Connection handler — captures sourceHandle as edge condition
   const onConnect = useCallback(
@@ -275,6 +283,40 @@ export default function EditorPage() {
     [setNodes]
   )
 
+  // 节点类型切换：保留位置和连接，清空配置
+  const handleChangeNodeType = useCallback((nodeId: string, newType: string) => {
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id === nodeId) {
+          return {
+            ...n,
+            type: newType,
+            data: {
+              ...n.data,
+              label: DEFAULT_LABELS[newType] || newType,
+              config: {},
+            },
+          }
+        }
+        return n
+      })
+    )
+    // 同步更新 selectedNode
+    setSelectedNode((prev) => {
+      if (!prev || prev.id !== nodeId) return prev
+      return {
+        ...prev,
+        type: newType,
+        data: {
+          ...prev.data,
+          label: DEFAULT_LABELS[newType] || newType,
+          config: {},
+        },
+      }
+    })
+    setDirty(true)
+  }, [setNodes])
+
   // Save handler
   const handleSave = useCallback(async () => {
     setSaving(true)
@@ -372,7 +414,7 @@ export default function EditorPage() {
       )
 
       // Store cleanup for unmount
-      return cleanup
+      sseCleanupRef.current = cleanup
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to run workflow'
       setError(errorMsg)
@@ -544,6 +586,7 @@ export default function EditorPage() {
             key={selectedNode.id}
             node={selectedNode}
             onUpdate={handleUpdateNode}
+            onChangeNodeType={handleChangeNodeType}
             onClose={() => setSelectedNode(null)}
           />
         )}

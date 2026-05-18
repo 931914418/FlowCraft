@@ -20,7 +20,14 @@ workflowRoutes.post('/', async (c) => {
   if (!Array.isArray(body.edges)) {
     return c.json({ error: 'edges must be an array' }, 400)
   }
-  const [wf] = await db.insert(workflowDefinitions).values({ name, definition: body }).returning()
+  // 提取 webhook 字段写入独立列，而非嵌在 definition JSON 内
+  const { webhookPath, webhookSecret, ...definition } = body
+  const [wf] = await db.insert(workflowDefinitions).values({
+    name,
+    definition,
+    webhookPath: webhookPath || null,
+    webhookSecret: webhookSecret || null,
+  }).returning()
   return c.json(wf)
 })
 
@@ -48,8 +55,16 @@ workflowRoutes.put('/:id', async (c) => {
     return c.json({ error: 'Invalid request body' }, 400)
   }
   const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : 'Untitled'
+  // 提取 webhook 字段写入独立列，而非嵌在 definition JSON 内
+  const { webhookPath, webhookSecret, ...definition } = body
   await db.update(workflowDefinitions)
-    .set({ name, definition: body, updatedAt: new Date() })
+    .set({
+      name,
+      definition,
+      webhookPath: webhookPath || null,
+      webhookSecret: webhookSecret || null,
+      updatedAt: new Date(),
+    })
     .where(eq(workflowDefinitions.id, id))
   return c.json({ ok: true })
 })
@@ -106,15 +121,22 @@ workflowRoutes.get('/execution/:executionId/stream', async (c) => {
     }
 
     engineEvents.on(`node:${executionId}`, nodeHandler)
-    engineEvents.once(`execution:${executionId}`, execHandler)
+    engineEvents.on(`execution:${executionId}`, execHandler)
+
+    const cleanup = () => {
+      engineEvents.off(`node:${executionId}`, nodeHandler)
+      engineEvents.off(`execution:${executionId}`, execHandler)
+    }
+
+    // 客户端断开时移除所有监听器，防止泄漏
+    stream.onAbort(cleanup)
 
     try {
       await new Promise<void>((resolve) => {
         engineEvents.once(`execution:${executionId}`, () => resolve())
       })
     } finally {
-      engineEvents.off(`node:${executionId}`, nodeHandler)
-      engineEvents.off(`execution:${executionId}`, execHandler)
+      cleanup()
     }
   })
 })

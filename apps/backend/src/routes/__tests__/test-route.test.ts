@@ -110,7 +110,7 @@ describe('POST /api/test/node', () => {
     expect(body.durationMs).toBeGreaterThanOrEqual(0)
   })
 
-  it('should pass testInput to ExecutionContext variables and nodeOutputs', async () => {
+  it('should pass testInput to both variables.input and nodeOutputs when no testUpstream', async () => {
     const executor = createMockExecutor(() =>
       Promise.resolve({ output: 'result', tokens: 0 }),
     )
@@ -132,8 +132,39 @@ describe('POST /api/test/node', () => {
     const [nodeArg, contextArg] = calls[0]
     expect(nodeArg.id).toBe('test-node')
     expect(nodeArg.type).toBe('http')
+    // testInput 同时放入 variables.input 和 nodeOutputs
     expect((contextArg as ExecutionContext).variables.get('input')).toEqual(testInput)
     expect((contextArg as ExecutionContext).nodeOutputs.get('key')).toBe('value')
+    expect((contextArg as ExecutionContext).nodeOutputs.get('nested')).toEqual({ a: 1 })
+  })
+
+  it('should pass testUpstream as nodeOutputs and testInput as variables.input', async () => {
+    const executor = createMockExecutor(() =>
+      Promise.resolve({ output: 'result', tokens: 0 }),
+    )
+    mockGetExecutor.mockReturnValue(executor)
+
+    const testUpstream = { 'http-1': { status: 200 }, 'llm-1': { text: 'hello' } }
+    const testInput = { score: 85 }
+    await app.request('/api/test/node', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nodeType: 'condition',
+        config: { field: { sourceNodeId: 'http-1', path: 'status' }, operator: 'eq', value: 200 },
+        testInput,
+        testUpstream,
+      }),
+    })
+
+    expect(executor.execute).toHaveBeenCalledTimes(1)
+    const calls = (executor.execute as any).mock.calls
+    const contextArg = calls[0][1] as ExecutionContext
+    // testUpstream → nodeOutputs
+    expect(contextArg.nodeOutputs.get('http-1')).toEqual({ status: 200 })
+    expect(contextArg.nodeOutputs.get('llm-1')).toEqual({ text: 'hello' })
+    // testInput → variables.input
+    expect(contextArg.variables.get('input')).toEqual(testInput)
   })
 
   it('should return error when executor throws', async () => {

@@ -8,6 +8,7 @@ interface TestNodeRequest {
   nodeType: NodeType
   config: Record<string, unknown>
   testInput?: Record<string, unknown>
+  testUpstream?: Record<string, unknown>
 }
 
 interface TestNodeResponse {
@@ -24,7 +25,7 @@ const app = new Hono()
 app.post('/node', async (c) => {
   const body = await c.req.json<TestNodeRequest>()
 
-  const { nodeType, config, testInput } = body
+  const { nodeType, config, testInput, testUpstream } = body
 
   if (!nodeType || !config) {
     return c.json<TestNodeResponse>(
@@ -57,9 +58,25 @@ app.post('/node', async (c) => {
     incomingEdges: [],
   }
 
-  const context: ExecutionContext = {
-    nodeOutputs: new Map(testInput ? Object.entries(testInput) : []),
-    variables: new Map(testInput ? [['input', testInput]] : []),
+  // 构建 context：testUpstream 放入 nodeOutputs，testInput 放入 variables.input
+  // 同时兼容旧逻辑：当没有 testUpstream 时，testInput 也放入 nodeOutputs（虚拟上游节点 "__test__"）
+  let context: ExecutionContext
+  if (testUpstream) {
+    context = {
+      nodeOutputs: new Map(Object.entries(testUpstream)),
+      variables: new Map(testInput ? [['input', testInput]] : []),
+    }
+  } else if (testInput) {
+    // 向后兼容：testInput 同时放入 nodeOutputs 和 variables.input
+    context = {
+      nodeOutputs: new Map(Object.entries(testInput)),
+      variables: new Map([['input', testInput]]),
+    }
+  } else {
+    context = {
+      nodeOutputs: new Map(),
+      variables: new Map(),
+    }
   }
 
   const start = Date.now()

@@ -25,6 +25,7 @@ interface NodeEditorProps {
 interface PropertyPanelProps {
   node: Node
   onUpdate: (nodeId: string, data: Record<string, unknown>) => void
+  onChangeNodeType?: (nodeId: string, newType: string) => void
   onClose: () => void
 }
 
@@ -41,7 +42,7 @@ const EDITOR_MAP: Partial<Record<NodeType, React.ComponentType<NodeEditorProps>>
   'ai-processor': AIProcessorEditor,
 }
 
-export function PropertyPanel({ node, onUpdate, onClose }: PropertyPanelProps) {
+export function PropertyPanel({ node, onUpdate, onChangeNodeType, onClose }: PropertyPanelProps) {
   const config = getNodeConfig(node)
   const nodeType = node.type as NodeType
   const label = (node.data as Record<string, unknown>).label as string ?? ''
@@ -113,6 +114,26 @@ export function PropertyPanel({ node, onUpdate, onClose }: PropertyPanelProps) {
             />
           ) : (
             <p className="text-xs text-slate-400">此节点无可配置属性</p>
+          )}
+
+          {/* 模式切换按钮（仅 data-mapper 显示） */}
+          {nodeType === 'data-mapper' && (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-amber-800">需要更灵活的处理？</p>
+                  <p className="text-xs text-amber-600">切换为代码模式，用 JavaScript 自定义数据转换</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-300 text-amber-700 hover:bg-amber-100"
+                  onClick={() => onChangeNodeType?.(node.id, 'code')}
+                >
+                  切换
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       </ScrollArea>

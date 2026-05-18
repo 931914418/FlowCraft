@@ -8,6 +8,7 @@ import { toolRoutes } from './routes/tools'
 import { modelRoutes } from './routes/models'
 import testRoutes from './routes/test'
 import webhookRoutes from './routes/webhook'
+import aiRoutes from './routes/ai'
 
 const app = new Hono()
 
@@ -32,6 +33,7 @@ app.route('/api/workflows', workflowRoutes)
 app.route('/api/tools', toolRoutes)
 app.route('/api/models', modelRoutes)
 app.route('/api/test', testRoutes)
+app.route('/api/ai', aiRoutes)
 
 app.get('/health', (c) => c.json({ status: 'ok' }))
 

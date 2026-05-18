@@ -134,8 +134,18 @@ export class ConditionExecutor implements NodeExecutor {
 
     let result = false
     switch (operator) {
-      case 'eq': result = fieldValue == value; break
-      case 'neq': result = fieldValue != value; break
+      case 'eq': {
+        if (fieldValue == null && value == null) result = true
+        else if (fieldValue == null || value == null) result = false
+        else result = String(fieldValue) === String(value)
+        break
+      }
+      case 'neq': {
+        if (fieldValue == null && value == null) result = false
+        else if (fieldValue == null || value == null) result = true
+        else result = String(fieldValue) !== String(value)
+        break
+      }
       case 'gt': result = Number(fieldValue) > Number(value); break
       case 'lt': result = Number(fieldValue) < Number(value); break
       case 'gte': result = Number(fieldValue) >= Number(value); break
@@ -172,6 +182,10 @@ const SAFE_GLOBALS = {
 
 export class CodeExecutor implements NodeExecutor {
   async execute(node: DAGNode, context: ExecutionContext, signal?: AbortSignal) {
+    // 安全防护：代码执行默认关闭，需显式启用
+    if (!process.env.ENABLE_CODE_EXECUTION) {
+      throw new Error('Code execution is disabled. Set ENABLE_CODE_EXECUTION=1 to enable.')
+    }
     const { code } = node.config as Record<string, any>
     const input = Object.fromEntries(context.variables)
 
@@ -265,13 +279,67 @@ export class HttpExecutor implements NodeExecutor {
   }
 }
 
+export class AIProcessorExecutor implements NodeExecutor {
+  async execute(node: DAGNode, context: ExecutionContext, signal?: AbortSignal): Promise<{ output: unknown; tokens: number }> {
+    const config = node.config as Record<string, any>
+    const { instruction, model, outputFormat, outputSchema } = config
+
+    if (!instruction) {
+      return { output: '', tokens: 0 }
+    }
+
+    // 收集上游所有输出作为上下文
+    const upstreamData: Record<string, unknown> = {}
+    for (const [nodeId, output] of context.nodeOutputs) {
+      upstreamData[nodeId] = output
+    }
+
+    // 构造 prompt
+    let prompt = `你是一个数据处理助手。根据用户指令处理以下数据。\n\n上游数据：\n${JSON.stringify(upstreamData, null, 2)}\n\n处理指令：\n${instruction}`
+
+    if (outputFormat === 'json') {
+      prompt += '\n\n请以 JSON 格式返回结果。'
+    }
+    if (outputSchema) {
+      prompt += `\n\n输出格式要求：${outputSchema}`
+    }
+
+    const sdk = getModelSdk(String(model || 'GLM-4.7'))
+
+    const result = await generateText({
+      model: sdk,
+      prompt,
+      temperature: 0.3,
+      maxOutputTokens: 2000,
+      abortSignal: signal,
+    })
+
+    let output: unknown = result.text
+    // 如果期望 JSON 输出，尝试解析
+    if (outputFormat === 'json' && typeof output === 'string') {
+      try {
+        output = JSON.parse(output)
+      } catch {
+        // 保持字符串输出
+      }
+    }
+
+    return { output, tokens: result.usage?.totalTokens || 0 }
+  }
+}
+
 export function getExecutor(type: NodeType): NodeExecutor | null {
   switch (type) {
     case 'llm': return new LLMExecutor()
     case 'condition': return new ConditionExecutor()
-    case 'code': return new CodeExecutor()
+    case 'code':
+      if (!process.env.ENABLE_CODE_EXECUTION) {
+        console.warn('[Engine] Code execution is disabled. Set ENABLE_CODE_EXECUTION=1 to enable.')
+      }
+      return new CodeExecutor()
     case 'http': return new HttpExecutor()
     case 'data-mapper': return new DataMapperExecutor()
+    case 'ai-processor': return new AIProcessorExecutor()
     default: return null
   }
 }
