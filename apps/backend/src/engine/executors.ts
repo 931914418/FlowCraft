@@ -196,6 +196,39 @@ export class CodeExecutor implements NodeExecutor {
   }
 }
 
+export class DataMapperExecutor implements NodeExecutor {
+  async execute(node: DAGNode, context: ExecutionContext): Promise<{ output: unknown; tokens: number }> {
+    const config = node.config as Record<string, any>
+    const { sourceNodeId, mappings } = config
+
+    // 获取上游数据
+    const sourceData = sourceNodeId
+      ? context.nodeOutputs.get(String(sourceNodeId))
+      : null
+
+    if (!sourceData) {
+      return { output: {}, tokens: 0 }
+    }
+
+    // 过滤和重命名字段
+    const result: Record<string, unknown> = {}
+    if (Array.isArray(mappings)) {
+      for (const mapping of mappings) {
+        if (!mapping.enabled) continue
+        if (!mapping.sourcePath) continue
+
+        const value = resolvePath(sourceData, String(mapping.sourcePath))
+        if (value !== undefined) {
+          const targetName = mapping.targetName || mapping.sourcePath
+          result[String(targetName)] = value
+        }
+      }
+    }
+
+    return { output: result, tokens: 0 }
+  }
+}
+
 export class HttpExecutor implements NodeExecutor {
   async execute(node: DAGNode, context: ExecutionContext, signal?: AbortSignal) {
     const { url, method, headers, body } = node.config as Record<string, any>
@@ -238,6 +271,7 @@ export function getExecutor(type: NodeType): NodeExecutor | null {
     case 'condition': return new ConditionExecutor()
     case 'code': return new CodeExecutor()
     case 'http': return new HttpExecutor()
+    case 'data-mapper': return new DataMapperExecutor()
     default: return null
   }
 }
