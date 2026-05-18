@@ -32,14 +32,19 @@ const StartNode = memo(function StartNode(props: NodeProps) {
     >
       <div
         className={cn(
-          'min-w-[140px] rounded-lg border-2 bg-green-50 px-4 py-2 shadow-sm transition-all duration-300',
+          'min-w-[140px] overflow-hidden rounded-lg border-2 bg-green-50 shadow-sm transition-all duration-300',
           statusStyles[status] ?? statusStyles.idle,
           props.selected && 'ring-2 ring-blue-400 ring-offset-1'
         )}
       >
-        <div className="flex items-center gap-2">
-          <PlayCircle className="h-5 w-5 text-green-600" />
-          <span className="text-sm font-semibold text-green-800">{data.label}</span>
+        <div className="flex">
+          <div className="w-1 self-stretch rounded-l-lg bg-green-500" />
+          <div className="flex-1 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <PlayCircle className="h-5 w-5 text-green-600" />
+              <span className="text-sm font-semibold text-green-800">{data.label}</span>
+            </div>
+          </div>
         </div>
         <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-green-500" />
       </div>

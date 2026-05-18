@@ -1,4 +1,4 @@
-export type NodeType = 'start' | 'end' | 'llm' | 'condition' | 'code' | 'http'
+export type NodeType = 'start' | 'end' | 'llm' | 'condition' | 'code' | 'http' | 'data-mapper' | 'ai-processor'
 
 export type TriggerType = 'manual' | 'cron' | 'webhook'
 
@@ -74,4 +74,6 @@ export const NODE_TYPE_META: Record<NodeType, { icon: string; label: string; col
   condition: { icon: 'git-branch', label: 'Condition', color: 'text-amber-500' },
   code: { icon: 'code', label: 'Code', color: 'text-purple-500' },
   http: { icon: 'globe', label: 'HTTP', color: 'text-cyan-500' },
+  'data-mapper': { icon: 'table-2', label: 'Data Mapper', color: 'cyan-500' },
+  'ai-processor': { icon: 'sparkles', label: 'AI Processor', color: 'purple-500' },
 }

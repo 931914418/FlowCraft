@@ -108,6 +108,8 @@ export function connectExecutionSSE(
 
       const decoder = new TextDecoder()
       let buffer = ''
+      let currentEvent = ''
+      let currentData = ''
 
       while (!aborted) {
         const { done, value } = await reader.read()
@@ -118,30 +120,38 @@ export function connectExecutionSSE(
         buffer = lines.pop() || ''
 
         for (const line of lines) {
-          if (line.trim() === '') continue
+          if (line.trim() === '') {
+            // Empty line signals end of event
+            if (currentEvent && currentData) {
+              try {
+                const parsed = JSON.parse(currentData)
 
-          const [event, ...dataParts] = line.split(':')
-          const data = dataParts.join(':').trim()
-
-          if (data) {
-            try {
-              const parsed = JSON.parse(data)
-
-              // Handle different event types
-              if (event === 'end') {
-                onComplete?.()
-                return
-              } else if (event === 'status' || event === 'node') {
-                // Extract node events from status data
-                if (parsed.nodes && Array.isArray(parsed.nodes)) {
-                  parsed.nodes.forEach((node: NodeExecutionEvent) => {
-                    onEvent(node)
-                  })
+                // Handle different event types
+                if (currentEvent === 'end') {
+                  onComplete?.()
+                  return
+                } else if (currentEvent === 'status') {
+                  // Extract node events from status data
+                  if (parsed.nodes && Array.isArray(parsed.nodes)) {
+                    parsed.nodes.forEach((node: NodeExecutionEvent) => {
+                      onEvent(node)
+                    })
+                  }
+                } else if (currentEvent === 'node') {
+                  // Single node event
+                  onEvent(parsed)
                 }
+              } catch (e) {
+                console.error('Failed to parse SSE event:', currentEvent, currentData, e)
               }
-            } catch (e) {
-              console.error('Failed to parse SSE data:', data, e)
+              // Reset after processing
+              currentEvent = ''
+              currentData = ''
             }
+          } else if (line.startsWith('event: ')) {
+            currentEvent = line.substring(7).trim()
+          } else if (line.startsWith('data: ')) {
+            currentData = line.substring(6).trim()
           }
         }
       }

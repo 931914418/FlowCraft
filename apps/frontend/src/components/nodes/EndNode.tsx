@@ -32,15 +32,20 @@ const EndNode = memo(function EndNode(props: NodeProps) {
     >
       <div
         className={cn(
-          'min-w-[140px] rounded-lg border-2 bg-red-50 px-4 py-2 shadow-sm transition-all duration-300',
+          'min-w-[140px] overflow-hidden rounded-lg border-2 bg-red-50 shadow-sm transition-all duration-300',
           statusStyles[status] ?? statusStyles.idle,
           props.selected && 'ring-2 ring-blue-400 ring-offset-1'
         )}
       >
         <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-red-400" />
-        <div className="flex items-center gap-2">
-          <Square className="h-5 w-5 text-red-500" />
-          <span className="text-sm font-semibold text-red-800">{data.label}</span>
+        <div className="flex">
+          <div className="w-1 self-stretch rounded-l-lg bg-red-500" />
+          <div className="flex-1 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <Square className="h-5 w-5 text-red-500" />
+              <span className="text-sm font-semibold text-red-800">{data.label}</span>
+            </div>
+          </div>
         </div>
       </div>
     </motion.div>

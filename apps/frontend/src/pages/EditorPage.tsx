@@ -28,6 +28,8 @@ import StartNode from '@/components/nodes/StartNode'
 import EndNode from '@/components/nodes/EndNode'
 import CodeNode from '@/components/nodes/CodeNode'
 import HttpNode from '@/components/nodes/HttpNode'
+import DataMapperNode from '@/components/nodes/DataMapperNode'
+import AIProcessorNode from '@/components/nodes/AIProcessorNode'
 
 import {
   getWorkflow,
@@ -36,7 +38,7 @@ import {
   runWorkflow,
   connectExecutionSSE,
 } from '@/api/workflow'
-import type { NodeType, NodeExecutionEvent } from '@flowcraft/shared'
+import type { NodeType, NodeExecutionEvent, ExecutionStatus } from '@flowcraft/shared'
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
@@ -45,6 +47,8 @@ const nodeTypes: NodeTypes = {
   condition: ConditionNode,
   code: CodeNode,
   http: HttpNode,
+  'data-mapper': DataMapperNode,
+  'ai-processor': AIProcessorNode,
 }
 
 const DEFAULT_LABELS: Record<string, string> = {
@@ -54,6 +58,8 @@ const DEFAULT_LABELS: Record<string, string> = {
   condition: 'Condition',
   code: 'Code',
   http: 'HTTP',
+  'data-mapper': 'Data Mapper',
+  'ai-processor': 'AI Processor',
 }
 
 export default function EditorPage() {

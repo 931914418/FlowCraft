@@ -121,7 +121,9 @@ export class WorkflowEngine {
         if (edge.sourceHandle && edge.sourceHandle !== branch) {
           skippedNodes.add(nodeId)
           await this.upsertNode(executionId, nodeId, 'skipped')
-          engineEvents.emit(`node:${executionId}:${nodeId}`, { nodeId, status: 'skipped' })
+          const eventData = { nodeId, status: 'skipped' }
+          engineEvents.emit(`node:${executionId}:${nodeId}`, eventData)
+          engineEvents.emit(`node:${executionId}`, eventData)
           return null
         }
       }
@@ -130,23 +132,31 @@ export class WorkflowEngine {
     const executor = getExecutor(dagNode.type as NodeType)
     if (!executor) {
       await this.upsertNode(executionId, nodeId, 'failed', undefined, `No executor for type: ${dagNode.type}`)
-      engineEvents.emit(`node:${executionId}:${nodeId}`, { nodeId, status: 'failed', error: `No executor: ${dagNode.type}` })
+      const eventData = { nodeId, status: 'failed', error: `No executor: ${dagNode.type}` }
+      engineEvents.emit(`node:${executionId}:${nodeId}`, eventData)
+      engineEvents.emit(`node:${executionId}`, eventData)
       return null
     }
 
     await this.upsertNode(executionId, nodeId, 'running')
-    engineEvents.emit(`node:${executionId}:${nodeId}`, { nodeId, status: 'running' })
+    const eventData = { nodeId, status: 'running' }
+    engineEvents.emit(`node:${executionId}:${nodeId}`, eventData)
+    engineEvents.emit(`node:${executionId}`, eventData)
 
     const nodeStart = Date.now()
     try {
       const result = await executor.execute(dagNode, context)
       await this.upsertNode(executionId, nodeId, 'completed', result.output, undefined, result.tokens, Date.now() - nodeStart)
-      engineEvents.emit(`node:${executionId}:${nodeId}`, { nodeId, status: 'completed', output: result.output, tokens: result.tokens, durationMs: Date.now() - nodeStart })
+      const eventData = { nodeId, status: 'completed', output: result.output, tokens: result.tokens, durationMs: Date.now() - nodeStart }
+      engineEvents.emit(`node:${executionId}:${nodeId}`, eventData)
+      engineEvents.emit(`node:${executionId}`, eventData)
       return result
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
       await this.upsertNode(executionId, nodeId, 'failed', undefined, msg, 0, Date.now() - nodeStart)
-      engineEvents.emit(`node:${executionId}:${nodeId}`, { nodeId, status: 'failed', error: msg })
+      const eventData = { nodeId, status: 'failed', error: msg }
+      engineEvents.emit(`node:${executionId}:${nodeId}`, eventData)
+      engineEvents.emit(`node:${executionId}`, eventData)
       throw err
     }
   }
