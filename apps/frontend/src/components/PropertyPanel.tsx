@@ -87,6 +87,7 @@ export function PropertyPanel({ node, onUpdate, onClose }: PropertyPanelProps) {
                   <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
                   <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4</SelectItem>
                   <SelectItem value="claude-haiku-4-20250514">Claude Haiku 4</SelectItem>
+                  <SelectItem value="GLM-4.7">GLM-4.7 (智谱)</SelectItem>
                 </Select>
               </div>
               <div>

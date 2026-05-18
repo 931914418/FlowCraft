@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
@@ -9,7 +10,7 @@ import { modelRoutes } from './routes/models'
 const app = new Hono()
 
 app.use('*', logger())
-app.use('*', cors({ origin: ['http://localhost:5173', 'http://localhost:3000'] }))
+app.use('*', cors({ origin: ['http://localhost:5175', 'http://localhost:3002'] }))
 
 const authKey = process.env.API_AUTH_KEY
 if (authKey) {
@@ -36,12 +37,13 @@ app.onError((err, c) => {
   }, 500)
 })
 
-const port = Number(process.env.PORT) || 3000
+const port = Number(process.env.PORT) || 3002
 
 serve({ fetch: app.fetch, port }, () => {
   console.log(`FlowCraft backend running on http://localhost:${port}`)
-  if (!process.env.OPENAI_API_KEY) console.warn('[WARN] OPENAI_API_KEY not set. LLM nodes will fail.')
+  if (!process.env.OPENAI_API_KEY) console.warn('[WARN] OPENAI_API_KEY not set. OpenAI models will fail.')
   if (!process.env.ANTHROPIC_API_KEY) console.warn('[WARN] ANTHROPIC_API_KEY not set. Claude models will fail.')
+  if (!process.env.ZHIPU_API_KEY) console.warn('[WARN] ZHIPU_API_KEY not set. GLM models will fail.')
 })
 
 process.on('SIGTERM', () => {

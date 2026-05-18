@@ -28,6 +28,7 @@ services:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/flowcraft
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ZHIPU_API_KEY: ${ZHIPU_API_KEY}
       API_AUTH_KEY: ${API_AUTH_KEY:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]

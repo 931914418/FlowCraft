@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
 import { db } from '../db'
 import { workflowExecutions, nodeExecutions } from '../db/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { parseDAG, topologicalSort } from './dag'
 import { getExecutor, renderTemplate, type ExecutionContext } from './executors'
 import type { WorkflowDefinition, NodeType, NodeExecutionEvent } from '@flowcraft/shared'
@@ -37,6 +37,7 @@ export class WorkflowEngine {
     }
     let totalTokens = 0
     const skippedNodes = new Set<string>()
+    let hasFailure = false
 
     try {
       for (const layer of layers) {
@@ -64,6 +65,7 @@ export class WorkflowEngine {
               context.variables.set(`${nodeId}.branch`, (result.value.output as Record<string, unknown>).branch)
             }
           } else if (result.status === 'rejected') {
+            hasFailure = true
             console.error(`[Engine] Node ${nodeId} failed:`, result.reason)
           }
         }
@@ -75,10 +77,10 @@ export class WorkflowEngine {
         : { message: 'completed' }
 
       await db.update(workflowExecutions)
-        .set({ status: 'completed', output: finalOutput, totalTokens, durationMs: Date.now() - startTime, completedAt: new Date() })
+        .set({ status: hasFailure ? 'failed' : 'completed', output: finalOutput, totalTokens, durationMs: Date.now() - startTime, completedAt: new Date() })
         .where(eq(workflowExecutions.id, executionId))
 
-      engineEvents.emit(`execution:${executionId}`, { executionStatus: 'completed' })
+      engineEvents.emit(`execution:${executionId}`, { executionStatus: hasFailure ? 'failed' : 'completed' })
     } catch (err) {
       await db.update(workflowExecutions)
         .set({ status: 'failed', durationMs: Date.now() - startTime, completedAt: new Date() })
@@ -153,31 +155,28 @@ export class WorkflowEngine {
     executionId: string, nodeId: string, status: string,
     output?: unknown, error?: string, tokens = 0, durationMs = 0,
   ) {
-    const existing = await db.query.nodeExecutions.findFirst({
-      where: and(eq(nodeExecutions.executionId, executionId), eq(nodeExecutions.nodeId, nodeId)),
-    })
+    const values = {
+      executionId, nodeId, status,
+      ...(output !== undefined ? { output } : {}),
+      ...(error !== undefined ? { error } : {}),
+      tokens, durationMs,
+      startedAt: new Date(),
+      ...(status === 'completed' || status === 'failed' ? { completedAt: new Date() } : {}),
+    }
 
-    if (existing) {
-      await db.update(nodeExecutions)
-        .set({
+    await db.insert(nodeExecutions)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [nodeExecutions.executionId, nodeExecutions.nodeId],
+        set: {
           status,
           ...(output !== undefined ? { output } : {}),
           ...(error !== undefined ? { error } : {}),
           ...(tokens ? { tokens } : {}),
           ...(durationMs ? { durationMs } : {}),
           ...(status === 'completed' || status === 'failed' ? { completedAt: new Date() } : {}),
-        })
-        .where(eq(nodeExecutions.id, existing.id))
-    } else {
-      await db.insert(nodeExecutions).values({
-        executionId, nodeId, status,
-        ...(output !== undefined ? { output } : {}),
-        ...(error !== undefined ? { error } : {}),
-        tokens, durationMs,
-        startedAt: new Date(),
-        ...(status === 'completed' || status === 'failed' ? { completedAt: new Date() } : {}),
+        },
       })
-    }
   }
 
   abort(executionId: string) {

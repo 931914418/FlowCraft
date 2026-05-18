@@ -23,28 +23,43 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
+interface WorkflowRow {
+  id: string
+  name: string
+  definition: WorkflowDefinition
+  createdAt?: string
+  updatedAt?: string
+}
+
+function unwrap(row: WorkflowRow): WorkflowDefinition {
+  return { ...row.definition, id: row.id, name: row.name }
+}
+
 export async function listWorkflows(): Promise<WorkflowDefinition[]> {
-  return request<WorkflowDefinition[]>(API_BASE)
+  const rows = await request<WorkflowRow[]>(API_BASE)
+  return rows.map(unwrap)
 }
 
 export async function getWorkflow(id: string): Promise<WorkflowDefinition> {
-  return request<WorkflowDefinition>(`${API_BASE}/${id}`)
+  const row = await request<WorkflowRow>(`${API_BASE}/${id}`)
+  return unwrap(row)
 }
 
 export async function saveWorkflow(
   workflow: WorkflowDefinition
 ): Promise<WorkflowDefinition> {
-  return request<WorkflowDefinition>(API_BASE, {
+  const row = await request<WorkflowRow>(API_BASE, {
     method: 'POST',
     body: JSON.stringify(workflow),
   })
+  return unwrap(row)
 }
 
 export async function updateWorkflow(
   id: string,
   workflow: WorkflowDefinition
-): Promise<WorkflowDefinition> {
-  return request<WorkflowDefinition>(`${API_BASE}/${id}`, {
+): Promise<void> {
+  await request(`${API_BASE}/${id}`, {
     method: 'PUT',
     body: JSON.stringify(workflow),
   })
@@ -68,7 +83,7 @@ export function connectExecutionSSE(
   onEvent: (event: NodeExecutionEvent) => void,
   onError?: (error: Event) => void
 ): () => void {
-  const source = new EventSource(`/api/executions/${executionId}/stream`)
+  const source = new EventSource(`/api/workflows/execution/${executionId}/stream`)
 
   source.onmessage = (e) => {
     try {

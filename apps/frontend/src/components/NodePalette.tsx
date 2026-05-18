@@ -18,15 +18,6 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   'globe': Globe,
 }
 
-const LABEL_MAP: Record<string, string> = {
-  start: 'Start',
-  end: 'End',
-  llm: 'LLM',
-  condition: 'Condition',
-  code: 'Code',
-  http: 'HTTP',
-}
-
 interface NodePaletteProps {
   onAddNode?: (type: NodeType) => void
 }
@@ -51,7 +42,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
       {nodeTypes.map((type) => {
         const meta = NODE_TYPE_META[type]
         const Icon = ICON_MAP[meta.icon] ?? Code
-        const label = LABEL_MAP[type] ?? meta.label
+        const label = meta.label
 
         return (
           <div

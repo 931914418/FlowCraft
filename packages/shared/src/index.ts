@@ -68,10 +68,10 @@ export interface ModelInfo {
 }
 
 export const NODE_TYPE_META: Record<NodeType, { icon: string; label: string; color: string }> = {
-  start: { icon: '▶', label: '开始', color: 'text-green-500' },
-  end: { icon: '⏹', label: '结束', color: 'text-red-500' },
+  start: { icon: 'PlayCircle', label: 'Start', color: 'text-green-500' },
+  end: { icon: 'Square', label: 'End', color: 'text-red-500' },
   llm: { icon: 'bot', label: 'LLM', color: 'text-blue-500' },
-  condition: { icon: 'git-branch', label: '条件', color: 'text-amber-500' },
-  code: { icon: 'code', label: '代码', color: 'text-purple-500' },
+  condition: { icon: 'git-branch', label: 'Condition', color: 'text-amber-500' },
+  code: { icon: 'code', label: 'Code', color: 'text-purple-500' },
   http: { icon: 'globe', label: 'HTTP', color: 'text-cyan-500' },
 }

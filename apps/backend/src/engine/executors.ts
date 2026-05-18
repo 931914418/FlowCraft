@@ -24,11 +24,20 @@ export interface NodeExecutor {
 
 const openaiClient = process.env.OPENAI_API_KEY ? createOpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null
 const anthropicClient = process.env.ANTHROPIC_API_KEY ? createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null
+// Zhipu GLM Coding Plan uses OpenAI-compatible endpoint
+const zhipuClient = process.env.ZHIPU_API_KEY ? createOpenAI({
+  apiKey: process.env.ZHIPU_API_KEY,
+  baseURL: 'https://open.bigmodel.cn/api/coding/paas/v4',
+}) : null
 
 function getModelSdk(model: string) {
   if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
     if (!openaiClient) throw new Error('OPENAI_API_KEY not configured')
-    return openaiClient(model)
+    return openaiClient.chat(model)
+  }
+  if (model.startsWith('glm-') || model.startsWith('GLM-')) {
+    if (!zhipuClient) throw new Error('ZHIPU_API_KEY not configured')
+    return zhipuClient.chat(model)
   }
   if (!anthropicClient) throw new Error('ANTHROPIC_API_KEY not configured')
   return anthropicClient(model)
@@ -69,10 +78,10 @@ export class ConditionExecutor implements NodeExecutor {
         switch (op) {
           case '>': result = Number(left) > Number(rightVal); break
           case '<': result = Number(left) < Number(rightVal); break
-          case '==': result = left == rightVal; break
+          case '==': result = String(left) === String(rightVal); break
           case '>=': result = Number(left) >= Number(rightVal); break
           case '<=': result = Number(left) <= Number(rightVal); break
-          case '!=': result = left != rightVal; break
+          case '!=': result = String(left) !== String(rightVal); break
         }
       }
     } catch {
@@ -96,6 +105,7 @@ function resolvePath(obj: unknown, path: string): unknown {
   return current
 }
 
+// SAFE_GLOBALS sandbox is not production-hardened — use isolated-vm for untrusted code.
 const SAFE_GLOBALS = {
   Math, Date, JSON, Array, Object, String, Number, Boolean,
   parseInt, parseFloat, isNaN, isFinite,
@@ -132,6 +142,12 @@ export class HttpExecutor implements NodeExecutor {
   async execute(node: DAGNode, context: ExecutionContext, signal?: AbortSignal) {
     const { url, method, headers, body } = node.config as Record<string, any>
     const renderedUrl = renderTemplate(String(url || ''), context.variables)
+
+    const parsed = new URL(renderedUrl)
+    const blockedHosts = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0)/i
+    if (blockedHosts.test(parsed.hostname)) {
+      throw new Error(`Requests to internal addresses are blocked: ${parsed.hostname}`)
+    }
 
     const fetchOptions: RequestInit = {
       method: String(method || 'GET'),

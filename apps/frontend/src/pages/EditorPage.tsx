@@ -75,10 +75,13 @@ export default function EditorPage() {
   const reactFlowInstance = useRef<ReactFlowInstance>(null)
   const workflowIdRef = useRef<string | undefined>(id)
 
+  const loadedRef = useRef(false)
+
   // Load existing workflow
   useEffect(() => {
     if (!id) return
     let cancelled = false
+    loadedRef.current = false
     setLoading(true)
     getWorkflow(id)
       .then((wf) => {
@@ -102,6 +105,8 @@ export default function EditorPage() {
             data: e.condition ? { condition: e.condition } : undefined,
           }))
         )
+        // Mark load complete so dirty tracking starts after this render
+        loadedRef.current = true
         setDirty(false)
       })
       .catch((err) => setError(err.message))
@@ -111,9 +116,10 @@ export default function EditorPage() {
     return () => { cancelled = true }
   }, [id, setNodes, setEdges])
 
-  // Track dirty state
+  // Track dirty state — skip the initial set from loading
   useEffect(() => {
-    if (!loading) setDirty(true)
+    if (!loadedRef.current) return
+    setDirty(true)
   }, [nodes, edges]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Connection handler — captures sourceHandle as edge condition
@@ -231,8 +237,10 @@ export default function EditorPage() {
         await updateWorkflow(workflowIdRef.current, workflow)
       } else {
         const saved = await saveWorkflow(workflow)
-        workflowIdRef.current = saved.id
-        navigate(`/editor/${saved.id}`, { replace: true })
+        if (saved.id) {
+          workflowIdRef.current = saved.id
+          navigate(`/editor/${saved.id}`, { replace: true })
+        }
       }
       setDirty(false)
     } catch (err) {

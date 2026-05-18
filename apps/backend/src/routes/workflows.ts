@@ -10,7 +10,16 @@ export const workflowRoutes = new Hono()
 
 workflowRoutes.post('/', async (c) => {
   const body = await c.req.json()
-  const name = body.name || 'Untitled'
+  if (typeof body !== 'object' || body === null) {
+    return c.json({ error: 'Invalid request body' }, 400)
+  }
+  const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : 'Untitled'
+  if (!Array.isArray(body.nodes)) {
+    return c.json({ error: 'nodes must be an array' }, 400)
+  }
+  if (!Array.isArray(body.edges)) {
+    return c.json({ error: 'edges must be an array' }, 400)
+  }
   const [wf] = await db.insert(workflowDefinitions).values({ name, definition: body }).returning()
   return c.json(wf)
 })
@@ -35,8 +44,12 @@ workflowRoutes.get('/:id', async (c) => {
 workflowRoutes.put('/:id', async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
+  if (typeof body !== 'object' || body === null) {
+    return c.json({ error: 'Invalid request body' }, 400)
+  }
+  const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : 'Untitled'
   await db.update(workflowDefinitions)
-    .set({ name: body.name, definition: body, updatedAt: new Date() })
+    .set({ name, definition: body, updatedAt: new Date() })
     .where(eq(workflowDefinitions.id, id))
   return c.json({ ok: true })
 })

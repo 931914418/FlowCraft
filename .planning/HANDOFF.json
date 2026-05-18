@@ -1,34 +1,50 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-16T05:14:15.476Z",
+  "timestamp": "2026-05-18T03:08:32Z",
   "phase": null,
-  "phase_name": "FlowCraft Full Implementation",
+  "phase_name": "FlowCraft Code Review Fixes + GLM Integration + E2E Verification",
   "phase_dir": ".",
-  "plan": 1,
-  "task": 4,
-  "total_tasks": 4,
+  "plan": null,
+  "task": 5,
+  "total_tasks": 5,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "Phase 1: Monorepo + Backend + Schema + Shared Types", "status": "done", "commit": "fe16d7d"},
-    {"id": 2, "name": "Phase 2: DAG Parser + Executors + Engine + API (with fixes)", "status": "done", "commit": "fe16d7d"},
-    {"id": 3, "name": "Phase 3: Frontend (React Flow + fixes)", "status": "done", "commit": "fe16d7d"},
-    {"id": 4, "name": "Phase 4: Docker + Tests + README", "status": "done", "commit": "fe16d7d"}
+    {"id": 1, "name": "Code review (4 Critical, 8 Important, 6 Minor found)", "status": "done"},
+    {"id": 2, "name": "Fix C1-C4: SSE URL + API response type mismatch + dirty tracking", "status": "done"},
+    {"id": 3, "name": "Fix I1-I8: condition equality, Promise.allSettled, SSRF, Select onBlur, upsertNode race, input validation, icon mapping", "status": "done"},
+    {"id": 4, "name": "Fix Minor issues + build (vite-env.d.ts, tsconfig deprecation)", "status": "done"},
+    {"id": 5, "name": "Add GLM-4.7 Zhipu support + E2E browser test", "status": "done"}
   ],
   "remaining_tasks": [],
   "blockers": [],
-  "human_actions_pending": [
-    {"action": "Start PostgreSQL (docker compose up -d postgres or local install)", "context": "Backend requires PostgreSQL to run. Schema needs to be pushed with pnpm db:push", "blocking": true},
-    {"action": "Configure .env with real API keys", "context": "Copy .env.example to .env and set OPENAI_API_KEY and/or ANTHROPIC_API_KEY for LLM nodes to work", "blocking": false},
-    {"action": "Run pnpm dev and test the full flow in browser", "context": "Verify editor loads, nodes can be added/connected, save works, run triggers execution", "blocking": false}
-  ],
+  "human_actions_pending": [],
   "decisions": [
-    {"decision": "Incorporate all 7 ship-blocker fixes from /autoplan review into implementation", "rationale": "CodeExecutor RCE, SSE polling, condition routing, recordNode duplicates, no auth, no error handling, Promise.all were all critical", "phase": 1},
-    {"decision": "Use EventEmitter for SSE instead of DB polling", "rationale": "DB polling at 500ms per client doesn't scale past single-user", "phase": 2},
-    {"decision": "Sandbox CodeExecutor with SAFE_GLOBALS whitelist", "rationale": "new Function() gave access to process.env which would leak API keys", "phase": 2},
-    {"decision": "Use native HTML select instead of Radix/shadcn Select", "rationale": "Avoids complex dependency; simple styled select works for MVP", "phase": 3},
-    {"decision": "Support HTML5 drag from NodePalette AND click-to-add fallback", "rationale": "Design review flagged click-only as not meeting 'drag-and-drop' promise", "phase": 3}
+    {"decision": "Use createOpenAI.chat() not () for @ai-sdk/openai v3 with Zhipu", "rationale": "v3 defaults to Responses API (/responses); Zhipu only supports Chat Completions (/chat/completions). .chat() forces correct path", "phase": 5},
+    {"decision": "Add WorkflowRow type + unwrap() in frontend API layer", "rationale": "Backend returns DB rows with nested definition field; frontend was treating response as WorkflowDefinition directly causing crashes", "phase": 2},
+    {"decision": "Use onConflictDoUpdate for upsertNode instead of findFirst+insert", "rationale": "Race condition between findFirst and insert on concurrent status updates; SQL-level UPSERT is atomic", "phase": 3},
+    {"decision": "Changed ports from 3000/5173 to 3002/5175", "rationale": "User requested port change (+2)", "phase": 5},
+    {"decision": "Added dotenv/config import to backend entry point", "rationale": "tsx watch doesn't auto-load .env files; DATABASE_URL was undefined at startup", "phase": 5},
+    {"decision": "Deleted stale .js files shadowing .tsx files in frontend/src", "rationale": "Vite resolved old .js files first; GLM-4.7 option was missing from dropdown until .js files removed", "phase": 5}
   ],
-  "uncommitted_files": [],
-  "next_action": "Start PostgreSQL, run pnpm db:push, then pnpm dev. Open http://localhost:5173 and test the full workflow: create workflow, add nodes, connect them, configure properties, save, run with debug panel.",
-  "context_notes": "Full /autoplan review completed (CEO + Design + Eng + DX). All phases implemented with review fixes. 19 tests passing, frontend builds clean. The product needs a running PostgreSQL instance and API keys to fully function."
+  "uncommitted_files": [
+    ".env.example",
+    "apps/backend/package.json",
+    "apps/backend/src/engine/engine.ts",
+    "apps/backend/src/engine/executors.ts",
+    "apps/backend/src/index.ts",
+    "apps/backend/src/routes/workflows.ts",
+    "apps/frontend/src/api/workflow.ts",
+    "apps/frontend/src/components/NodePalette.tsx",
+    "apps/frontend/src/components/PropertyPanel.tsx",
+    "apps/frontend/src/components/ui/select.tsx",
+    "apps/frontend/src/pages/EditorPage.tsx",
+    "apps/frontend/tsconfig.json",
+    "apps/frontend/vite.config.ts",
+    "docker-compose.yml",
+    "packages/shared/src/index.ts",
+    "pnpm-lock.yaml",
+    "ruvector.db"
+  ],
+  "next_action": "Commit all changes as WIP. Project fully functional — all review fixes applied, GLM-4.7 integration verified via E2E test.",
+  "context_notes": "E2E test passed: homepage shows workflow list, editor renders nodes, GLM-4.7 model in dropdown, save creates workflow with correct ID, execution completes with Start→LLM→End all completed, 432 tokens consumed. Running on PostgreSQL (localhost:5432, db=flowcraft, password=sd6126026). Backend :3002, Frontend :5175. .env in both root and apps/backend/."
 }
