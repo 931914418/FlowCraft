@@ -15,11 +15,12 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Loader2, Save, Play, ArrowLeft } from 'lucide-react'
+import { Loader2, Save, Play, ArrowLeft, Webhook, Copy, RefreshCw, ChevronDown, X } from 'lucide-react'
 
 import { NodePalette } from '@/components/NodePalette'
 import { PropertyPanel } from '@/components/PropertyPanel'
 import { DebugPanel } from '@/components/DebugPanel'
+import { AIChatBar, type AIWorkflowResult } from '@/components/AIChatBar'
 import { Button } from '@/components/ui/button'
 
 import LLMNode from '@/components/nodes/LLMNode'
@@ -38,7 +39,7 @@ import {
   runWorkflow,
   connectExecutionSSE,
 } from '@/api/workflow'
-import type { NodeType, NodeExecutionEvent, ExecutionStatus } from '@flowcraft/shared'
+import type { NodeType, NodeExecutionEvent, ExecutionStatus, TriggerType } from '@flowcraft/shared'
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
@@ -75,6 +76,12 @@ export default function EditorPage() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const [debugEvents, setDebugEvents] = useState<NodeExecutionEvent[]>([])
   const [showDebug, setShowDebug] = useState(false)
+  const [triggerType, setTriggerType] = useState<TriggerType>('manual')
+  const [webhookPath, setWebhookPath] = useState<string>('')
+  const [webhookSecret, setWebhookSecret] = useState<string>('')
+  const [showWebhookPanel, setShowWebhookPanel] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [aiMode, setAiMode] = useState<'simple' | 'advanced'>('simple')
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -93,6 +100,9 @@ export default function EditorPage() {
       .then((wf) => {
         if (cancelled) return
         setWorkflowName(wf.name)
+        setTriggerType(wf.trigger?.type ?? 'manual')
+        setWebhookPath(wf.webhookPath ?? '')
+        setWebhookSecret(wf.webhookSecret ?? '')
         setNodes(
           wf.nodes.map((n) => ({
             id: n.id,
@@ -204,6 +214,52 @@ export default function EditorPage() {
     [setNodes]
   )
 
+  // AI 生成工作流回调
+  const handleAIGenerate = useCallback(
+    (workflow: AIWorkflowResult, _explanation: string) => {
+      setWorkflowName(workflow.name)
+
+      const xyNodes = workflow.nodes.map((n) => ({
+        id: n.id,
+        type: n.type,
+        position: n.position ?? { x: 200 + Math.random() * 300, y: 200 + Math.random() * 200 },
+        data: {
+          label: DEFAULT_LABELS[n.type] ?? n.type,
+          config: n.config ?? {},
+        },
+      }))
+
+      const xyEdges = workflow.edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+      }))
+
+      setNodes(xyNodes)
+      setEdges(xyEdges)
+      setDirty(true)
+    },
+    [setNodes, setEdges]
+  )
+
+  // Webhook helpers
+  const generatePath = useCallback(() => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    let result = ''
+    for (let i = 0; i < 8; i++) result += chars[Math.floor(Math.random() * chars.length)]
+    setWebhookPath(result)
+    setDirty(true)
+  }, [])
+
+  const webhookUrl = `${window.location.origin}/api/hooks/${webhookPath}`
+
+  const copyWebhookUrl = useCallback(() => {
+    if (!webhookPath) return
+    navigator.clipboard.writeText(webhookUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }, [webhookUrl, webhookPath])
+
   // Update node data from PropertyPanel
   const handleUpdateNode = useCallback(
     (nodeId: string, data: Record<string, unknown>) => {
@@ -226,6 +282,9 @@ export default function EditorPage() {
     try {
       const workflow = {
         name: workflowName,
+        trigger: { type: triggerType } as const,
+        webhookPath: triggerType === 'webhook' ? webhookPath : undefined,
+        webhookSecret: triggerType === 'webhook' ? webhookSecret : undefined,
         nodes: nodes.map((n) => ({
           id: n.id,
           type: n.type as NodeType,
@@ -257,7 +316,7 @@ export default function EditorPage() {
     } finally {
       setSaving(false)
     }
-  }, [workflowName, nodes, edges, navigate])
+  }, [workflowName, nodes, edges, triggerType, webhookPath, webhookSecret, navigate])
 
   // Run handler
   const handleRun = useCallback(async () => {
@@ -354,7 +413,21 @@ export default function EditorPage() {
           className="border-none bg-transparent text-sm font-medium outline-none focus:ring-0"
         />
         {dirty && <span className="text-xs text-amber-600">Unsaved</span>}
+        <AIChatBar
+          onGenerate={handleAIGenerate}
+          mode={aiMode}
+          onModeChange={setAiMode}
+        />
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowWebhookPanel(!showWebhookPanel)}
+          >
+            <Webhook className="mr-1 h-3 w-3" />
+            {triggerType === 'webhook' ? 'Webhook' : 'Manual'}
+            <ChevronDown className="ml-1 h-3 w-3" />
+          </Button>
           <Button variant="outline" size="sm" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Save className="mr-1 h-3 w-3" />}
             Save
@@ -365,6 +438,73 @@ export default function EditorPage() {
           </Button>
         </div>
       </div>
+
+      {/* Webhook config panel */}
+      {showWebhookPanel && (
+        <div className="border-b border-neutral-200 bg-slate-50 px-4 py-3">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-slate-700">触发方式</span>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowWebhookPanel(false)}>
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+          <div className="flex items-center gap-3 mb-3">
+            <label className="flex items-center gap-1.5 text-sm">
+              <input
+                type="radio"
+                name="triggerType"
+                checked={triggerType === 'manual'}
+                onChange={() => { setTriggerType('manual'); setDirty(true) }}
+              />
+              手动触发
+            </label>
+            <label className="flex items-center gap-1.5 text-sm">
+              <input
+                type="radio"
+                name="triggerType"
+                checked={triggerType === 'webhook'}
+                onChange={() => { setTriggerType('webhook'); setDirty(true) }}
+              />
+              Webhook
+            </label>
+          </div>
+          {triggerType === 'webhook' && (
+            <div className="space-y-2">
+              <div>
+                <span className="text-xs text-slate-500">Webhook URL</span>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={webhookPath ? webhookUrl : '点击生成按钮创建 Webhook URL'}
+                    className="flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-mono text-slate-600"
+                  />
+                  {webhookPath && (
+                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={copyWebhookUrl}>
+                      <Copy className="h-3 w-3" />
+                      {copied && <span className="absolute -top-6 text-xs text-green-600">Copied!</span>}
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={generatePath}>
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                    {webhookPath ? '重新生成' : '生成路径'}
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-slate-500">Webhook Secret（可选）</span>
+                <input
+                  type="text"
+                  value={webhookSecret}
+                  onChange={(e) => { setWebhookSecret(e.target.value); setDirty(true) }}
+                  placeholder="用于验证 Webhook 请求的密钥"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
