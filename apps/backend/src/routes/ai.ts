@@ -164,7 +164,7 @@ app.post('/generate-workflow', async (c) => {
     return c.json({ error: '请输入工作流描述' }, 400)
   }
 
-  const zhipuClient = getZhipuClient()
+  const zhipuClient = await getZhipuClient()
   if (!zhipuClient) {
     return c.json({ error: 'AI 服务未配置' }, 503)
   }
