@@ -15,3 +15,4 @@ apps/frontend/src/**/*.js
 # SQLite WAL 文件（运行时临时文件）
 *.db-shm
 *.db-wal
+tsconfig.tsbuildinfo
