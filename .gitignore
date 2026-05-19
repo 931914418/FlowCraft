@@ -7,6 +7,9 @@ dist/
 drizzle/
 *.db
 .gstack/
+.swarm/
+ruvector.db
+.planning/
 
 # TS 编译产物
 *.js.map

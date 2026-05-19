@@ -253,7 +253,7 @@ export class CodeExecutor implements NodeExecutor {
   async execute(node: DAGNode, context: ExecutionContext, signal?: AbortSignal) {
     // 安全防护：代码执行默认关闭，需显式启用
     if (!process.env.ENABLE_CODE_EXECUTION) {
-      throw new Error('Code execution is disabled. Set ENABLE_CODE_EXECUTION=1 to enable.')
+      throw new Error('代码执行已禁用。请在设置中启用"代码执行"功能，或设置环境变量 ENABLE_CODE_EXECUTION=1')
     }
     const { code } = node.config as Record<string, any>
     const input = Object.fromEntries(context.variables)
@@ -274,7 +274,7 @@ export class CodeExecutor implements NodeExecutor {
       const output = fn(SAFE_GLOBALS, input)
       return { output, tokens: 0 }
     } catch (err: unknown) {
-      throw new Error(`Code execution failed: ${err instanceof Error ? err.message : String(err)}`)
+      throw new Error(`代码执行失败: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 }
@@ -403,7 +403,7 @@ export function getExecutor(type: NodeType): NodeExecutor | null {
     case 'condition': return new ConditionExecutor()
     case 'code':
       if (!process.env.ENABLE_CODE_EXECUTION) {
-        console.warn('[Engine] Code execution is disabled. Set ENABLE_CODE_EXECUTION=1 to enable.')
+        console.warn('[Engine] 代码执行已禁用，请设置 ENABLE_CODE_EXECUTION=1 启用')
       }
       return new CodeExecutor()
     case 'http': return new HttpExecutor()
