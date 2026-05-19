@@ -21,6 +21,8 @@ import { NodePalette } from '@/components/NodePalette'
 import { PropertyPanel } from '@/components/PropertyPanel'
 import { DebugPanel } from '@/components/DebugPanel'
 import { AIChatBar, type AIWorkflowResult } from '@/components/AIChatBar'
+import { AIPreviewPanel } from '@/components/AIPreviewPanel'
+import { Sheet } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 
 import LLMNode from '@/components/nodes/LLMNode'
@@ -82,6 +84,11 @@ export default function EditorPage() {
   const [showWebhookPanel, setShowWebhookPanel] = useState(false)
   const [copied, setCopied] = useState(false)
   const [aiMode, setAiMode] = useState<'simple' | 'advanced'>('simple')
+  const [aiPreview, setAiPreview] = useState<{
+    workflow: AIWorkflowResult
+    explanation: string
+  } | null>(null)
+  const [aiGenerating, setAiGenerating] = useState(false)
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -222,33 +229,37 @@ export default function EditorPage() {
     [setNodes]
   )
 
-  // AI 生成工作流回调
+  // AI 生成工作流回调 — 先存预览，不直接应用
   const handleAIGenerate = useCallback(
-    (workflow: AIWorkflowResult, _explanation: string) => {
-      setWorkflowName(workflow.name)
-
-      const xyNodes = workflow.nodes.map((n) => ({
-        id: n.id,
-        type: n.type,
-        position: n.position ?? { x: 200 + Math.random() * 300, y: 200 + Math.random() * 200 },
-        data: {
-          label: DEFAULT_LABELS[n.type] ?? n.type,
-          config: n.config ?? {},
-        },
-      }))
-
-      const xyEdges = workflow.edges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-      }))
-
-      setNodes(xyNodes)
-      setEdges(xyEdges)
-      setDirty(true)
+    (workflow: AIWorkflowResult, explanation: string) => {
+      setAiPreview({ workflow, explanation })
     },
-    [setNodes, setEdges]
+    []
   )
+
+  const handleAIApply = useCallback(() => {
+    if (!aiPreview) return
+    const { workflow } = aiPreview
+    setWorkflowName(workflow.name)
+    const xyNodes = workflow.nodes.map((n) => ({
+      id: n.id,
+      type: n.type,
+      position: n.position ?? { x: 200 + Math.random() * 300, y: 200 + Math.random() * 200 },
+      data: {
+        label: DEFAULT_LABELS[n.type] ?? n.type,
+        config: n.config ?? {},
+      },
+    }))
+    const xyEdges = workflow.edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+    }))
+    setNodes(xyNodes)
+    setEdges(xyEdges)
+    setDirty(true)
+    setAiPreview(null)
+  }, [aiPreview, setNodes, setEdges])
 
   // Webhook helpers
   const generatePath = useCallback(() => {
@@ -459,6 +470,7 @@ export default function EditorPage() {
           onGenerate={handleAIGenerate}
           mode={aiMode}
           onModeChange={setAiMode}
+          onLoadingChange={setAiGenerating}
         />
         <div className="ml-auto flex items-center gap-2">
           <Button
@@ -555,11 +567,20 @@ export default function EditorPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar — Node palette */}
         <div className="w-48 border-r border-neutral-200 bg-neutral-50">
-          <NodePalette onAddNode={handleAddNode} />
+          <NodePalette onAddNode={handleAddNode} aiMode={aiMode} />
         </div>
 
         {/* Canvas */}
-        <div className="flex-1">
+        <div className="relative flex-1">
+          {/* AI generating overlay */}
+          {aiGenerating && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 backdrop-blur-sm">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+                <span className="text-sm font-medium text-violet-600">AI 正在生成工作流...</span>
+              </div>
+            </div>
+          )}
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -595,17 +616,30 @@ export default function EditorPage() {
       {/* Debug panel */}
       {showDebug && (
         <div className="border-t border-neutral-200 bg-neutral-50">
-          <div className="flex items-center justify-between px-4 py-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-              Execution Log
-            </span>
-            <Button variant="ghost" size="sm" onClick={() => setShowDebug(false)}>
-              Close
-            </Button>
-          </div>
-          <DebugPanel events={debugEvents} />
+          <DebugPanel
+            events={debugEvents}
+            onClear={() => setDebugEvents([])}
+            onClose={() => setShowDebug(false)}
+          />
         </div>
       )}
+
+      {/* AI Preview Sheet */}
+      <Sheet
+        open={!!aiPreview}
+        onClose={() => setAiPreview(null)}
+        title="AI 生成预览"
+      >
+        {aiPreview && (
+          <AIPreviewPanel
+            result={aiPreview.workflow}
+            explanation={aiPreview.explanation}
+            onApply={handleAIApply}
+            onDiscard={() => setAiPreview(null)}
+            onRegenerate={() => setAiPreview(null)}
+          />
+        )}
+      </Sheet>
     </div>
   )
 }

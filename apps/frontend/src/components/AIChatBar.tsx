@@ -19,9 +19,10 @@ interface AIChatBarProps {
   onGenerate: (workflow: AIWorkflowResult, explanation: string) => void
   mode: 'simple' | 'advanced'
   onModeChange: (mode: 'simple' | 'advanced') => void
+  onLoadingChange?: (loading: boolean) => void
 }
 
-export function AIChatBar({ onGenerate, mode, onModeChange }: AIChatBarProps) {
+export function AIChatBar({ onGenerate, mode, onModeChange, onLoadingChange }: AIChatBarProps) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +44,7 @@ export function AIChatBar({ onGenerate, mode, onModeChange }: AIChatBarProps) {
     if (!input.trim() || loading) return
     setLoading(true)
     setError(null)
+    onLoadingChange?.(true)
     try {
       const res = await fetch(`${API_BASE}/ai/generate-workflow`, {
         method: 'POST',
@@ -60,35 +62,41 @@ export function AIChatBar({ onGenerate, mode, onModeChange }: AIChatBarProps) {
       setError(err instanceof Error ? err.message : '网络错误')
     } finally {
       setLoading(false)
+      onLoadingChange?.(false)
     }
-  }, [input, loading, mode, onGenerate])
+  }, [input, loading, mode, onGenerate, onLoadingChange])
 
   return (
     <div ref={containerRef} className="relative flex items-center gap-2">
       {/* Mode toggle */}
-      <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 px-1 py-0.5">
-        <button
-          type="button"
-          className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-            mode === 'simple'
-              ? 'bg-white text-neutral-900 shadow-sm'
-              : 'text-neutral-500 hover:text-neutral-700'
-          }`}
-          onClick={() => onModeChange('simple')}
-        >
-          简单
-        </button>
-        <button
-          type="button"
-          className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-            mode === 'advanced'
-              ? 'bg-white text-neutral-900 shadow-sm'
-              : 'text-neutral-500 hover:text-neutral-700'
-          }`}
-          onClick={() => onModeChange('advanced')}
-        >
-          高级
-        </button>
+      <div className="flex flex-col">
+        <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 px-1 py-0.5">
+          <button
+            type="button"
+            className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+              mode === 'simple'
+                ? 'bg-white text-neutral-900 shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-700'
+            }`}
+            onClick={() => onModeChange('simple')}
+          >
+            简单
+          </button>
+          <button
+            type="button"
+            className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+              mode === 'advanced'
+                ? 'bg-white text-neutral-900 shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-700'
+            }`}
+            onClick={() => onModeChange('advanced')}
+          >
+            高级
+          </button>
+        </div>
+        <span className="mt-0.5 text-center text-[10px] text-neutral-400">
+          {mode === 'simple' ? '自动过滤代码节点' : '支持所有节点类型'}
+        </span>
       </div>
 
       {/* Input + Generate button */}

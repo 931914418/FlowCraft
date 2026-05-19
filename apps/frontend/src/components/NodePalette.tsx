@@ -21,11 +21,12 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 
 interface NodePaletteProps {
   onAddNode?: (type: NodeType) => void
+  aiMode?: 'simple' | 'advanced'
 }
 
 const nodeTypes = Object.keys(NODE_TYPE_META) as NodeType[]
 
-export function NodePalette({ onAddNode }: NodePaletteProps) {
+export function NodePalette({ onAddNode, aiMode = 'simple' }: NodePaletteProps) {
   function handleDragStart(e: React.DragEvent, type: NodeType) {
     e.dataTransfer.setData('application/reactflow', type)
     e.dataTransfer.effectAllowed = 'move'
@@ -45,21 +46,28 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
         const Icon = ICON_MAP[meta.icon] ?? Code
         const label = meta.label
         const colors = getNodeColor(type)
+        const isFiltered = aiMode === 'simple' && type === 'code'
 
         return (
           <div
             key={type}
-            draggable
+            draggable={!isFiltered}
             onDragStart={(e) => handleDragStart(e, type)}
-            onClick={() => handleClick(type)}
+            onClick={() => !isFiltered && handleClick(type)}
             className={cn(
-              'flex cursor-grab items-center gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm text-neutral-700 transition-colors hover:border-neutral-200 active:cursor-grabbing',
-              `hover:${colors.bg}`,
+              'flex items-center gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm text-neutral-700 transition-colors',
+              isFiltered
+                ? 'cursor-not-allowed opacity-30'
+                : 'cursor-grab hover:border-neutral-200 active:cursor-grabbing',
+              !isFiltered && `hover:${colors.bg}`,
               meta.color
             )}
           >
             <Icon className="h-4 w-4" />
             <span>{label}</span>
+            {isFiltered && (
+              <span className="ml-auto text-[10px] text-neutral-400">高级模式</span>
+            )}
           </div>
         )
       })}

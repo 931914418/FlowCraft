@@ -36,6 +36,23 @@ const statusDotStyles: Record<string, string> = {
   skipped: 'bg-neutral-400',
 }
 
+const statusTextStyles: Record<string, string> = {
+  idle: '',
+  pending: 'text-neutral-400',
+  running: 'text-green-600',
+  completed: 'text-blue-600',
+  failed: 'text-red-600',
+  skipped: 'text-neutral-400',
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: '等待中',
+  running: '运行中',
+  completed: '已完成',
+  failed: '失败',
+  skipped: '已跳过',
+}
+
 const BaseNode = memo(function BaseNode({ icon: Icon, children, data, selected, type }: BaseNodeProps) {
   const nodeData = data as unknown as BaseNodeData
   const status = nodeData.status ?? 'idle'
@@ -64,6 +81,12 @@ const BaseNode = memo(function BaseNode({ icon: Icon, children, data, selected, 
               <Icon className="h-4 w-4 text-neutral-600" />
               <span className="text-sm font-medium text-neutral-800">{nodeData.label}</span>
             </div>
+
+            {status !== 'idle' && (
+              <div className={cn('mt-0.5 text-[10px] font-medium', statusTextStyles[status])}>
+                {STATUS_LABELS[status]}
+              </div>
+            )}
 
             {children && <div className="mt-1.5 text-xs text-neutral-500">{children}</div>}
           </div>
