@@ -1,48 +1,47 @@
 import { useState, useEffect } from 'react'
-import { Settings, Plus, Trash2, Edit2, Check, X, TestTube } from 'lucide-react'
+import { Settings, Plus, Trash2, Edit2, Check, X, TestTube, Loader2 } from 'lucide-react'
 import { Sheet } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectItem } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { API_BASE } from '@/lib/api-config'
 
-// 类型定义
+// 类型定义（与后端API一致）
 interface ApiKey {
   id: string
   provider: string
-  key: string
-  maskedKey: string
-  label?: string
+  name: string
+  apiKey: string
+  baseUrl?: string | null
+  isEnabled: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 interface ModelConfig {
   id: string
-  name: string
   provider: string
   modelId: string
-  enabled: boolean
+  displayName: string
+  maxTokens?: number | null
 }
 
 interface UserPreferences {
-  defaultModel: string
-  timeout: number
-  maxRetries: number
+  id?: string
+  userId?: string | null
+  defaultLlmModel?: string | null
+  defaultAiProcessorModel?: string | null
+  defaultWorkflowGenModel?: string | null
+  requestTimeout?: number
+  maxRetries?: number
 }
 
 const PROVIDERS = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'anthropic', label: 'Anthropic' },
-  { value: 'google', label: 'Google' },
+  { value: 'zhipu', label: '智谱AI' },
   { value: 'custom', label: '自定义' },
-]
-
-const PRESET_MODELS: ModelConfig[] = [
-  { id: 'gpt-4', name: 'GPT-4', provider: 'openai', modelId: 'gpt-4', enabled: true },
-  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'openai', modelId: 'gpt-4-turbo-preview', enabled: true },
-  { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'openai', modelId: 'gpt-3.5-turbo', enabled: true },
-  { id: 'claude-3-opus', name: 'Claude 3 Opus', provider: 'anthropic', modelId: 'claude-3-opus-20240229', enabled: true },
-  { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', provider: 'anthropic', modelId: 'claude-3-sonnet-20240229', enabled: true },
-  { id: 'claude-3-haiku', name: 'Claude 3 Haiku', provider: 'anthropic', modelId: 'claude-3-haiku-20240307', enabled: true },
 ]
 
 interface SettingsSidebarProps {
@@ -56,58 +55,85 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
   // API Keys 状态
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [editingKeyId, setEditingKeyId] = useState<string | null>(null)
-  const [newKeyForm, setNewKeyForm] = useState({ provider: 'openai', key: '', label: '' })
+  const [newKeyForm, setNewKeyForm] = useState({ provider: 'openai', name: '', apiKey: '', baseUrl: '' })
   const [showNewKeyForm, setShowNewKeyForm] = useState(false)
+  const [loadingKeys, setLoadingKeys] = useState(false)
 
   // Models 状态
-  const [customModels, setCustomModels] = useState<ModelConfig[]>([])
-  const [newModelForm, setNewModelForm] = useState({ name: '', provider: 'openai', modelId: '' })
+  const [models, setModels] = useState<ModelConfig[]>([])
+  const [newModelForm, setNewModelForm] = useState({ displayName: '', provider: 'openai', modelId: '', maxTokens: '' })
   const [showNewModelForm, setShowNewModelForm] = useState(false)
+  const [loadingModels, setLoadingModels] = useState(false)
 
   // Preferences 状态
-  const [preferences, setPreferences] = useState<UserPreferences>({
-    defaultModel: 'gpt-4',
-    timeout: 30000,
-    maxRetries: 3,
-  })
+  const [preferences, setPreferences] = useState<UserPreferences>({})
+  const [loadingPrefs, setLoadingPrefs] = useState(false)
 
   // 测试连接状态
   const [testingKeyId, setTestingKeyId] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<{ keyId: string; success: boolean; message: string } | null>(null)
 
-  // 从 localStorage 加载配置
+  // 错误状态
+  const [error, setError] = useState<string | null>(null)
+
+  // 从后端API加载配置
   useEffect(() => {
-    loadSettings()
-  }, [])
+    if (open) {
+      loadSettings()
+    }
+  }, [open])
 
-  const loadSettings = () => {
+  const loadSettings = async () => {
     try {
-      const storedKeys = localStorage.getItem('flowcraft_api_keys')
-      if (storedKeys) {
-        setApiKeys(JSON.parse(storedKeys))
-      }
-
-      const storedModels = localStorage.getItem('flowcraft_custom_models')
-      if (storedModels) {
-        setCustomModels(JSON.parse(storedModels))
-      }
-
-      const storedPrefs = localStorage.getItem('flowcraft_preferences')
-      if (storedPrefs) {
-        setPreferences(JSON.parse(storedPrefs))
-      }
+      await Promise.all([loadApiKeys(), loadModels(), loadPreferences()])
     } catch (error) {
       console.error('加载设置失败:', error)
+      setError('加载设置失败，请刷新页面重试')
     }
   }
 
-  const saveSettings = () => {
+  const loadApiKeys = async () => {
+    setLoadingKeys(true)
     try {
-      localStorage.setItem('flowcraft_api_keys', JSON.stringify(apiKeys))
-      localStorage.setItem('flowcraft_custom_models', JSON.stringify(customModels))
-      localStorage.setItem('flowcraft_preferences', JSON.stringify(preferences))
+      const response = await fetch(`${API_BASE}/settings/keys`)
+      if (!response.ok) throw new Error('获取API Keys失败')
+      const data = await response.json()
+      setApiKeys(data)
     } catch (error) {
-      console.error('保存设置失败:', error)
+      console.error('加载API Keys失败:', error)
+      throw error
+    } finally {
+      setLoadingKeys(false)
+    }
+  }
+
+  const loadModels = async () => {
+    setLoadingModels(true)
+    try {
+      const response = await fetch(`${API_BASE}/settings/models`)
+      if (!response.ok) throw new Error('获取模型失败')
+      const data = await response.json()
+      setModels(data)
+    } catch (error) {
+      console.error('加载模型失败:', error)
+      throw error
+    } finally {
+      setLoadingModels(false)
+    }
+  }
+
+  const loadPreferences = async () => {
+    setLoadingPrefs(true)
+    try {
+      const response = await fetch(`${API_BASE}/settings/preferences`)
+      if (!response.ok) throw new Error('获取偏好设置失败')
+      const data = await response.json()
+      setPreferences(data)
+    } catch (error) {
+      console.error('加载偏好设置失败:', error)
+      throw error
+    } finally {
+      setLoadingPrefs(false)
     }
   }
 
@@ -118,83 +144,208 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
   }
 
   // API Keys 操作
-  const handleAddKey = () => {
-    if (!newKeyForm.key.trim()) return
+  const handleAddKey = async () => {
+    if (!newKeyForm.apiKey.trim() || !newKeyForm.name.trim()) return
 
-    const newKey: ApiKey = {
-      id: `key-${Date.now()}`,
-      provider: newKeyForm.provider,
-      key: newKeyForm.key,
-      maskedKey: maskApiKey(newKeyForm.key),
-      label: newKeyForm.label || newKeyForm.provider,
+    setLoadingKeys(true)
+    setError(null)
+    try {
+      const response = await fetch(`${API_BASE}/settings/keys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: newKeyForm.provider,
+          name: newKeyForm.name,
+          apiKey: newKeyForm.apiKey,
+          baseUrl: newKeyForm.baseUrl || undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '添加API Key失败')
+      }
+
+      await loadApiKeys()
+      setNewKeyForm({ provider: 'openai', name: '', apiKey: '', baseUrl: '' })
+      setShowNewKeyForm(false)
+    } catch (error: any) {
+      console.error('添加API Key失败:', error)
+      setError(error.message || '添加API Key失败')
+    } finally {
+      setLoadingKeys(false)
     }
-
-    setApiKeys([...apiKeys, newKey])
-    setNewKeyForm({ provider: 'openai', key: '', label: '' })
-    setShowNewKeyForm(false)
-    saveSettings()
   }
 
-  const handleDeleteKey = (keyId: string) => {
-    setApiKeys(apiKeys.filter(k => k.id !== keyId))
-    saveSettings()
+  const handleDeleteKey = async (keyId: string) => {
+    setLoadingKeys(true)
+    setError(null)
+    try {
+      const response = await fetch(`${API_BASE}/settings/keys/${keyId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '删除API Key失败')
+      }
+
+      await loadApiKeys()
+    } catch (error: any) {
+      console.error('删除API Key失败:', error)
+      setError(error.message || '删除API Key失败')
+    } finally {
+      setLoadingKeys(false)
+    }
   }
 
   const handleEditKey = (keyId: string) => {
     setEditingKeyId(keyId)
+    setTestResult(null)
   }
 
-  const handleSaveEdit = (keyId: string, newLabel: string) => {
-    setApiKeys(apiKeys.map(k =>
-      k.id === keyId ? { ...k, label: newLabel } : k
-    ))
-    setEditingKeyId(null)
-    saveSettings()
+  const handleSaveEdit = async (keyId: string, newName: string) => {
+    setLoadingKeys(true)
+    setError(null)
+    try {
+      const response = await fetch(`${API_BASE}/settings/keys/${keyId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '更新API Key失败')
+      }
+
+      await loadApiKeys()
+      setEditingKeyId(null)
+    } catch (error: any) {
+      console.error('更新API Key失败:', error)
+      setError(error.message || '更新API Key失败')
+    } finally {
+      setLoadingKeys(false)
+    }
   }
 
   const handleTestConnection = async (keyId: string) => {
     setTestingKeyId(keyId)
     setTestResult(null)
+    setError(null)
 
-    // 模拟测试连接
-    setTimeout(() => {
-      const key = apiKeys.find(k => k.id === keyId)
-      const success = key?.key.startsWith('sk-') || Math.random() > 0.3
+    try {
+      const response = await fetch(`${API_BASE}/settings/keys/${keyId}/test`, {
+        method: 'POST',
+      })
 
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '测试连接失败')
+      }
+
+      const result = await response.json()
       setTestResult({
         keyId,
-        success,
-        message: success ? '连接成功！API Key 有效' : '连接失败，请检查 API Key',
+        success: result.success,
+        message: result.message || '连接测试成功',
       })
+    } catch (error: any) {
+      console.error('测试连接失败:', error)
+      setTestResult({
+        keyId,
+        success: false,
+        message: error.message || '测试连接失败',
+      })
+    } finally {
       setTestingKeyId(null)
-    }, 1000)
+    }
   }
 
   // Models 操作
-  const handleAddModel = () => {
-    if (!newModelForm.name.trim() || !newModelForm.modelId.trim()) return
+  const handleAddModel = async () => {
+    if (!newModelForm.displayName.trim() || !newModelForm.modelId.trim()) return
 
-    const newModel: ModelConfig = {
-      id: `custom-${Date.now()}`,
-      name: newModelForm.name,
-      provider: newModelForm.provider,
-      modelId: newModelForm.modelId,
-      enabled: true,
+    setLoadingModels(true)
+    setError(null)
+    try {
+      const response = await fetch(`${API_BASE}/settings/models`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: newModelForm.provider,
+          modelId: newModelForm.modelId,
+          displayName: newModelForm.displayName,
+          maxTokens: newModelForm.maxTokens ? parseInt(newModelForm.maxTokens) : undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '添加模型失败')
+      }
+
+      await loadModels()
+      setNewModelForm({ displayName: '', provider: 'openai', modelId: '', maxTokens: '' })
+      setShowNewModelForm(false)
+    } catch (error: any) {
+      console.error('添加模型失败:', error)
+      setError(error.message || '添加模型失败')
+    } finally {
+      setLoadingModels(false)
     }
-
-    setCustomModels([...customModels, newModel])
-    setNewModelForm({ name: '', provider: 'openai', modelId: '' })
-    setShowNewModelForm(false)
-    saveSettings()
   }
 
-  const handleDeleteModel = (modelId: string) => {
-    setCustomModels(customModels.filter(m => m.id !== modelId))
-    saveSettings()
+  const handleDeleteModel = async (modelId: string) => {
+    setLoadingModels(true)
+    setError(null)
+    try {
+      const response = await fetch(`${API_BASE}/settings/models/${modelId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '删除模型失败')
+      }
+
+      await loadModels()
+    } catch (error: any) {
+      console.error('删除模型失败:', error)
+      setError(error.message || '删除模型失败')
+    } finally {
+      setLoadingModels(false)
+    }
   }
 
   // 获取所有可用模型选项
-  const allModels = [...PRESET_MODELS, ...customModels]
+  const allModels = models
+
+  // 偏好设置操作
+  const handleUpdatePreferences = async (updates: Partial<UserPreferences>) => {
+    setLoadingPrefs(true)
+    setError(null)
+    try {
+      const response = await fetch(`${API_BASE}/settings/preferences`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '更新偏好设置失败')
+      }
+
+      const updated = await response.json()
+      setPreferences(updated)
+    } catch (error: any) {
+      console.error('更新偏好设置失败:', error)
+      setError(error.message || '更新偏好设置失败')
+    } finally {
+      setLoadingPrefs(false)
+    }
+  }
 
   return (
     <Sheet open={open} onClose={onClose} side="right" title="设置">
@@ -239,6 +390,18 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
         {/* API Keys 面板 */}
         {activeTab === 'api-keys' && (
           <div className="space-y-4">
+            {error && (
+              <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                {error}
+                <button
+                  onClick={() => setError(null)}
+                  className="ml-2 text-red-800 underline"
+                >
+                  关闭
+                </button>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-medium text-neutral-700">API 密钥管理</h4>
               <Button
@@ -246,6 +409,7 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
                 size="sm"
                 onClick={() => setShowNewKeyForm(!showNewKeyForm)}
                 className="h-7 text-xs"
+                disabled={loadingKeys}
               >
                 <Plus className="mr-1 h-3 w-3" />
                 添加
@@ -268,10 +432,10 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
                   </Select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-neutral-600">标签（可选）</label>
+                  <label className="mb-1 block text-xs text-neutral-600">名称</label>
                   <Input
-                    value={newKeyForm.label}
-                    onChange={(e) => setNewKeyForm({ ...newKeyForm, label: e.target.value })}
+                    value={newKeyForm.name}
+                    onChange={(e) => setNewKeyForm({ ...newKeyForm, name: e.target.value })}
                     placeholder="例如：生产环境"
                     className="h-8 text-xs"
                   />
@@ -280,15 +444,31 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
                   <label className="mb-1 block text-xs text-neutral-600">API Key</label>
                   <Input
                     type="password"
-                    value={newKeyForm.key}
-                    onChange={(e) => setNewKeyForm({ ...newKeyForm, key: e.target.value })}
+                    value={newKeyForm.apiKey}
+                    onChange={(e) => setNewKeyForm({ ...newKeyForm, apiKey: e.target.value })}
                     placeholder="sk-..."
                     className="h-8 text-xs"
                   />
                 </div>
+                {newKeyForm.provider === 'custom' && (
+                  <div>
+                    <label className="mb-1 block text-xs text-neutral-600">自定义端点</label>
+                    <Input
+                      value={newKeyForm.baseUrl}
+                      onChange={(e) => setNewKeyForm({ ...newKeyForm, baseUrl: e.target.value })}
+                      placeholder="https://api.example.com"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                )}
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={handleAddKey} className="h-7 text-xs">
-                    保存
+                  <Button
+                    size="sm"
+                    onClick={handleAddKey}
+                    className="h-7 text-xs"
+                    disabled={loadingKeys}
+                  >
+                    {loadingKeys ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : '保存'}
                   </Button>
                   <Button
                     variant="ghost"
@@ -303,7 +483,11 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
             )}
 
             <div className="space-y-2">
-              {apiKeys.length === 0 ? (
+              {loadingKeys ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
+                </div>
+              ) : apiKeys.length === 0 ? (
                 <div className="py-8 text-center text-sm text-neutral-400">
                   暂无 API Key，点击上方按钮添加
                 </div>
@@ -317,7 +501,7 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
                       {editingKeyId === apiKey.id ? (
                         <div className="flex items-center gap-2">
                           <Input
-                            defaultValue={apiKey.label}
+                            defaultValue={apiKey.name}
                             className="h-7 text-xs"
                             autoFocus
                             onBlur={(e) => handleSaveEdit(apiKey.id, e.target.value)}
@@ -334,14 +518,14 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-neutral-700">
-                              {apiKey.label}
+                              {apiKey.name}
                             </span>
                             <span className="text-xs text-neutral-400">
                               {PROVIDERS.find(p => p.value === apiKey.provider)?.label}
                             </span>
                           </div>
                           <div className="mt-1 font-mono text-xs text-neutral-500">
-                            {apiKey.maskedKey}
+                            {maskApiKey(apiKey.apiKey)}
                           </div>
                         </div>
                       )}
@@ -362,7 +546,7 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
                         size="icon"
                         className="h-7 w-7"
                         onClick={() => handleEditKey(apiKey.id)}
-                        title="编辑标签"
+                        title="编辑名称"
                       >
                         <Edit2 className="h-3 w-3" />
                       </Button>
@@ -371,16 +555,21 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
                         size="icon"
                         className="h-7 w-7"
                         onClick={() => handleTestConnection(apiKey.id)}
-                        disabled={testingKeyId === apiKey.id}
+                        disabled={testingKeyId === apiKey.id || loadingKeys}
                         title="测试连接"
                       >
-                        <TestTube className={cn('h-3 w-3', testingKeyId === apiKey.id && 'animate-spin')} />
+                        {testingKeyId === apiKey.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <TestTube className="h-3 w-3" />
+                        )}
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-red-500"
                         onClick={() => handleDeleteKey(apiKey.id)}
+                        disabled={loadingKeys}
                         title="删除"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -396,6 +585,18 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
         {/* Models 面板 */}
         {activeTab === 'models' && (
           <div className="space-y-4">
+            {error && (
+              <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                {error}
+                <button
+                  onClick={() => setError(null)}
+                  className="ml-2 text-red-800 underline"
+                >
+                  关闭
+                </button>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-medium text-neutral-700">模型配置</h4>
               <Button
@@ -403,6 +604,7 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
                 size="sm"
                 onClick={() => setShowNewModelForm(!showNewModelForm)}
                 className="h-7 text-xs"
+                disabled={loadingModels}
               >
                 <Plus className="mr-1 h-3 w-3" />
                 添加自定义
@@ -414,8 +616,8 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
                 <div>
                   <label className="mb-1 block text-xs text-neutral-600">模型名称</label>
                   <Input
-                    value={newModelForm.name}
-                    onChange={(e) => setNewModelForm({ ...newModelForm, name: e.target.value })}
+                    value={newModelForm.displayName}
+                    onChange={(e) => setNewModelForm({ ...newModelForm, displayName: e.target.value })}
                     placeholder="例如：GPT-4 Custom"
                     className="h-8 text-xs"
                   />
@@ -442,9 +644,24 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
                     className="h-8 text-xs"
                   />
                 </div>
+                <div>
+                  <label className="mb-1 block text-xs text-neutral-600">最大Token数（可选）</label>
+                  <Input
+                    type="number"
+                    value={newModelForm.maxTokens}
+                    onChange={(e) => setNewModelForm({ ...newModelForm, maxTokens: e.target.value })}
+                    placeholder="例如：128000"
+                    className="h-8 text-xs"
+                  />
+                </div>
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={handleAddModel} className="h-7 text-xs">
-                    保存
+                  <Button
+                    size="sm"
+                    onClick={handleAddModel}
+                    className="h-7 text-xs"
+                    disabled={loadingModels}
+                  >
+                    {loadingModels ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : '保存'}
                   </Button>
                   <Button
                     variant="ghost"
@@ -459,48 +676,39 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
             )}
 
             <div className="space-y-2">
-              <div className="text-xs font-medium text-neutral-500">预设模型</div>
-              {PRESET_MODELS.map((model) => (
-                <div
-                  key={model.id}
-                  className="flex items-center justify-between rounded-md border border-neutral-200 bg-white p-2.5"
-                >
-                  <div>
-                    <div className="text-sm font-medium text-neutral-700">{model.name}</div>
-                    <div className="text-xs text-neutral-400">
-                      {PROVIDERS.find(p => p.value === model.provider)?.label} • {model.modelId}
-                    </div>
-                  </div>
-                  <span className="text-xs text-neutral-400">预设</span>
+              {loadingModels ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
                 </div>
-              ))}
-
-              {customModels.length > 0 && (
-                <>
-                  <div className="mt-4 text-xs font-medium text-neutral-500">自定义模型</div>
-                  {customModels.map((model) => (
-                    <div
-                      key={model.id}
-                      className="flex items-center justify-between rounded-md border border-neutral-200 bg-white p-2.5"
-                    >
-                      <div>
-                        <div className="text-sm font-medium text-neutral-700">{model.name}</div>
-                        <div className="text-xs text-neutral-400">
-                          {PROVIDERS.find(p => p.value === model.provider)?.label} • {model.modelId}
-                        </div>
+              ) : models.length === 0 ? (
+                <div className="py-8 text-center text-sm text-neutral-400">
+                  暂无模型，请添加预设模型或自定义模型
+                </div>
+              ) : (
+                models.map((model) => (
+                  <div
+                    key={model.id}
+                    className="flex items-center justify-between rounded-md border border-neutral-200 bg-white p-2.5"
+                  >
+                    <div>
+                      <div className="text-sm font-medium text-neutral-700">{model.displayName}</div>
+                      <div className="text-xs text-neutral-400">
+                        {PROVIDERS.find(p => p.value === model.provider)?.label} • {model.modelId}
+                        {model.maxTokens && ` • ${model.maxTokens.toLocaleString()} tokens`}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-red-500"
-                        onClick={() => handleDeleteModel(model.id)}
-                        title="删除"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
                     </div>
-                  ))}
-                </>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-red-500"
+                      onClick={() => handleDeleteModel(model.id)}
+                      disabled={loadingModels}
+                      title="删除"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))
               )}
             </div>
           </div>
@@ -509,66 +717,109 @@ export function SettingsSidebar({ open, onClose }: SettingsSidebarProps) {
         {/* Preferences 面板 */}
         {activeTab === 'preferences' && (
           <div className="space-y-4">
+            {error && (
+              <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                {error}
+                <button
+                  onClick={() => setError(null)}
+                  className="ml-2 text-red-800 underline"
+                >
+                  关闭
+                </button>
+              </div>
+            )}
+
             <h4 className="text-sm font-medium text-neutral-700">偏好设置</h4>
 
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1.5 block text-sm text-neutral-600">默认模型</label>
-                <Select
-                  value={preferences.defaultModel}
-                  onValueChange={(value) => {
-                    setPreferences({ ...preferences, defaultModel: value })
-                    saveSettings()
-                  }}
-                >
-                  {allModels.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.name} ({PROVIDERS.find(p => p.value === model.provider)?.label})
-                    </SelectItem>
-                  ))}
-                </Select>
+            {loadingPrefs ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
               </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1.5 block text-sm text-neutral-600">默认LLM模型</label>
+                  <Select
+                    value={preferences.defaultLlmModel || ''}
+                    onValueChange={(value) => handleUpdatePreferences({ defaultLlmModel: value })}
+                  >
+                    {allModels.map((model) => (
+                      <SelectItem key={model.id} value={model.modelId}>
+                        {model.displayName} ({PROVIDERS.find(p => p.value === model.provider)?.label})
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm text-neutral-600">
-                  超时时间（毫秒）
-                </label>
-                <Input
-                  type="number"
-                  value={preferences.timeout}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value) || 30000
-                    setPreferences({ ...preferences, timeout: value })
-                    saveSettings()
-                  }}
-                  className="h-9"
-                />
-                <p className="mt-1 text-xs text-neutral-400">
-                  请求超时时间，默认 30000ms（30秒）
-                </p>
-              </div>
+                <div>
+                  <label className="mb-1.5 block text-sm text-neutral-600">默认AI处理器模型</label>
+                  <Select
+                    value={preferences.defaultAiProcessorModel || ''}
+                    onValueChange={(value) => handleUpdatePreferences({ defaultAiProcessorModel: value })}
+                  >
+                    {allModels.map((model) => (
+                      <SelectItem key={model.id} value={model.modelId}>
+                        {model.displayName} ({PROVIDERS.find(p => p.value === model.provider)?.label})
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm text-neutral-600">
-                  最大重试次数
-                </label>
-                <Input
-                  type="number"
-                  value={preferences.maxRetries}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value) || 3
-                    setPreferences({ ...preferences, maxRetries: value })
-                    saveSettings()
-                  }}
-                  className="h-9"
-                  min="0"
-                  max="10"
-                />
-                <p className="mt-1 text-xs text-neutral-400">
-                  请求失败时的重试次数，默认 3 次
-                </p>
+                <div>
+                  <label className="mb-1.5 block text-sm text-neutral-600">默认工作流生成模型</label>
+                  <Select
+                    value={preferences.defaultWorkflowGenModel || ''}
+                    onValueChange={(value) => handleUpdatePreferences({ defaultWorkflowGenModel: value })}
+                  >
+                    {allModels.map((model) => (
+                      <SelectItem key={model.id} value={model.modelId}>
+                        {model.displayName} ({PROVIDERS.find(p => p.value === model.provider)?.label})
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm text-neutral-600">
+                    超时时间（毫秒）
+                  </label>
+                  <Input
+                    type="number"
+                    value={preferences.requestTimeout || 30000}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 30000
+                      handleUpdatePreferences({ requestTimeout: value })
+                    }}
+                    className="h-9"
+                    disabled={loadingPrefs}
+                  />
+                  <p className="mt-1 text-xs text-neutral-400">
+                    请求超时时间，默认 30000ms（30秒）
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm text-neutral-600">
+                    最大重试次数
+                  </label>
+                  <Input
+                    type="number"
+                    value={preferences.maxRetries || 2}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 2
+                      handleUpdatePreferences({ maxRetries: value })
+                    }}
+                    className="h-9"
+                    min="0"
+                    max="10"
+                    disabled={loadingPrefs}
+                  />
+                  <p className="mt-1 text-xs text-neutral-400">
+                    请求失败时的重试次数，默认 2 次
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>

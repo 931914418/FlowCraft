@@ -41,7 +41,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
 // API Keys
 export async function listApiKeys(): Promise<ApiKey[]> {
-  return request<{ apiKeys: ApiKey[] }>(`${API_BASE}/keys`).then(r => r.apiKeys)
+  return request<ApiKey[]>(`${API_BASE}/keys`)
 }
 
 export async function createApiKey(data: {
@@ -78,7 +78,7 @@ export async function testApiKey(id: string): Promise<{ success: boolean; messag
 
 // Models
 export async function listModels(): Promise<Model[]> {
-  return request<{ models: Model[] }>(`${API_BASE}/models`).then(r => r.models)
+  return request<Model[]>(`${API_BASE}/models`)
 }
 
 export async function createModel(data: {
