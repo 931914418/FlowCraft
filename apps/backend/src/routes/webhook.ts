@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { timingSafeEqual } from 'crypto'
-import { db } from '../db'
-import { workflowDefinitions } from '../db/schema'
+import { db, schema } from '../db'
+const { workflowDefinitions } = schema
 import { eq } from 'drizzle-orm'
 import { engine } from '../engine/engine'
 import type { WorkflowDefinition } from '@flowcraft/shared'

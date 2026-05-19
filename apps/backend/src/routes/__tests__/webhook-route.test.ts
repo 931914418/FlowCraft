@@ -11,6 +11,9 @@ vi.mock('../../db', () => ({
   db: {
     select: (...args: unknown[]) => mockSelect(...args),
   },
+  schema: {
+    workflowDefinitions: { webhookPath: 'webhook_path' },
+  },
 }))
 
 // Mock engine 模块

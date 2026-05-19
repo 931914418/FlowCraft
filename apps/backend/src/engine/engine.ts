@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
-import { db } from '../db'
-import { workflowExecutions, nodeExecutions } from '../db/schema'
+import { db, schema } from '../db'
+const { workflowExecutions, nodeExecutions } = schema
 import { eq } from 'drizzle-orm'
 import { parseDAG, topologicalSort } from './dag'
 import { getExecutor, renderTemplate, type ExecutionContext } from './executors'
@@ -13,8 +13,9 @@ export class WorkflowEngine {
   private running = new Map<string, AbortController>()
 
   async execute(workflowId: string, definition: WorkflowDefinition, input: Record<string, unknown> = {}): Promise<string> {
+    const inputVal = this.isSqlite ? JSON.stringify(input) : input
     const [execution] = await db.insert(workflowExecutions).values({
-      workflowId, status: 'running', input,
+      workflowId, status: 'running', input: inputVal,
     }).returning()
 
     const abortCtrl = new AbortController()
@@ -74,14 +75,17 @@ export class WorkflowEngine {
         ? context.nodeOutputs.get(endNodes[0].id) || { message: 'completed' }
         : { message: 'completed' }
 
+      const outputVal = this.isSqlite ? JSON.stringify(finalOutput) : finalOutput
+      const completedAt = this.isSqlite ? new Date().toISOString() : new Date()
       await db.update(workflowExecutions)
-        .set({ status: hasFailure ? 'failed' : 'completed', output: finalOutput, totalTokens, durationMs: Date.now() - startTime, completedAt: new Date() })
+        .set({ status: hasFailure ? 'failed' : 'completed', output: outputVal, totalTokens, durationMs: Date.now() - startTime, completedAt })
         .where(eq(workflowExecutions.id, executionId))
 
       engineEvents.emit(`execution:${executionId}`, { executionStatus: hasFailure ? 'failed' : 'completed' })
     } catch (err) {
+      const completedAt = this.isSqlite ? new Date().toISOString() : new Date()
       await db.update(workflowExecutions)
-        .set({ status: 'failed', durationMs: Date.now() - startTime, completedAt: new Date() })
+        .set({ status: 'failed', durationMs: Date.now() - startTime, completedAt })
         .where(eq(workflowExecutions.id, executionId))
 
       engineEvents.emit(`execution:${executionId}`, { executionStatus: 'failed', error: String(err) })
@@ -161,17 +165,30 @@ export class WorkflowEngine {
     }
   }
 
+  private isSqlite = (process.env.DB_DRIVER || 'postgres') === 'sqlite'
+
+  private toDbValue(val: unknown): unknown {
+    if (val instanceof Date) return val.toISOString()
+    if (val !== null && typeof val === 'object') {
+      try { return JSON.stringify(val) } catch { return String(val) }
+    }
+    return val
+  }
+
   private async upsertNode(
     executionId: string, nodeId: string, status: string,
     output?: unknown, error?: string, tokens = 0, durationMs = 0,
   ) {
+    const startedAt = this.isSqlite ? new Date().toISOString() : new Date()
+    const completedAt = (status === 'completed' || status === 'failed') ? (this.isSqlite ? new Date().toISOString() : new Date()) : undefined
+    const outputVal = output !== undefined ? (this.isSqlite ? JSON.stringify(output) : output) : undefined
     const values = {
       executionId, nodeId, status,
-      ...(output !== undefined ? { output } : {}),
+      ...(outputVal !== undefined ? { output: outputVal } : {}),
       ...(error !== undefined ? { error } : {}),
       tokens, durationMs,
-      startedAt: new Date(),
-      ...(status === 'completed' || status === 'failed' ? { completedAt: new Date() } : {}),
+      startedAt,
+      ...(completedAt !== undefined ? { completedAt } : {}),
     }
 
     await db.insert(nodeExecutions)
@@ -180,11 +197,11 @@ export class WorkflowEngine {
         target: [nodeExecutions.executionId, nodeExecutions.nodeId],
         set: {
           status,
-          ...(output !== undefined ? { output } : {}),
+          ...(outputVal !== undefined ? { output: outputVal } : {}),
           ...(error !== undefined ? { error } : {}),
           ...(tokens ? { tokens } : {}),
           ...(durationMs ? { durationMs } : {}),
-          ...(status === 'completed' || status === 'failed' ? { completedAt: new Date() } : {}),
+          ...(completedAt !== undefined ? { completedAt } : {}),
         },
       })
   }
@@ -197,9 +214,10 @@ export class WorkflowEngine {
     const stale = await db.query.workflowExecutions.findMany({
       where: eq(workflowExecutions.status, 'running'),
     })
+    const completedAt = this.isSqlite ? new Date().toISOString() : new Date()
     for (const exec of stale) {
       await db.update(workflowExecutions)
-        .set({ status: 'failed', completedAt: new Date() })
+        .set({ status: 'failed', completedAt })
         .where(eq(workflowExecutions.id, exec.id))
       console.log(`[Recovery] Marked stale execution ${exec.id} as failed`)
     }

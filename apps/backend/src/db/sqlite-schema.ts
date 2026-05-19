@@ -1,7 +1,8 @@
 import { sqliteTable, text, integer, uniqueIndex, index } from 'drizzle-orm/sqlite-core'
+import { randomUUID } from 'crypto'
 
 export const workflowDefinitions = sqliteTable('workflow_definition', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
   name: text('name').notNull(),
   description: text('description'),
   definition: text('definition', { mode: 'json' }).notNull(),
@@ -15,7 +16,7 @@ export const workflowDefinitions = sqliteTable('workflow_definition', {
 })
 
 export const workflowExecutions = sqliteTable('workflow_execution', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
   workflowId: text('workflow_id').references(() => workflowDefinitions.id).notNull(),
   status: text('status').default('running'),
   input: text('input', { mode: 'json' }),
@@ -27,7 +28,7 @@ export const workflowExecutions = sqliteTable('workflow_execution', {
 })
 
 export const nodeExecutions = sqliteTable('node_execution', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
   executionId: text('execution_id').references(() => workflowExecutions.id).notNull(),
   nodeId: text('node_id').notNull(),
   status: text('status').default('pending'),

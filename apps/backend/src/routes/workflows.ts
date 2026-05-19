@@ -1,10 +1,13 @@
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import { db } from '../db'
-import { workflowDefinitions, workflowExecutions, nodeExecutions } from '../db/schema'
+import { db, schema } from '../db'
+const { workflowDefinitions, workflowExecutions, nodeExecutions } = schema
 import { eq, desc } from 'drizzle-orm'
 import { engine, engineEvents } from '../engine/engine'
 import type { WorkflowDefinition } from '@flowcraft/shared'
+
+const isSqlite = (process.env.DB_DRIVER || 'postgres') === 'sqlite'
+const toTimestamp = () => isSqlite ? new Date().toISOString() : new Date()
 
 export const workflowRoutes = new Hono()
 
@@ -63,14 +66,27 @@ workflowRoutes.put('/:id', async (c) => {
       definition,
       webhookPath: webhookPath || null,
       webhookSecret: webhookSecret || null,
-      updatedAt: new Date(),
+      updatedAt: toTimestamp(),
     })
     .where(eq(workflowDefinitions.id, id))
   return c.json({ ok: true })
 })
 
 workflowRoutes.delete('/:id', async (c) => {
-  await db.delete(workflowDefinitions).where(eq(workflowDefinitions.id, c.req.param('id')))
+  const id = c.req.param('id')
+  // Delete associated node executions, workflow executions, then the workflow itself
+  const executions = await db.query.workflowExecutions.findMany({
+    where: eq(workflowExecutions.workflowId, id),
+    columns: { id: true },
+  })
+  if (executions.length > 0) {
+    const execIds = executions.map(e => e.id)
+    for (const execId of execIds) {
+      await db.delete(nodeExecutions).where(eq(nodeExecutions.executionId, execId))
+    }
+    await db.delete(workflowExecutions).where(eq(workflowExecutions.workflowId, id))
+  }
+  await db.delete(workflowDefinitions).where(eq(workflowDefinitions.id, id))
   return c.json({ ok: true })
 })
 

@@ -1,8 +1,11 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import * as schema from './schema'
+import * as pgSchema from './schema'
+import * as sqliteSchema from './sqlite-schema'
 
 const driver = process.env.DB_DRIVER || 'postgres'
+
+export const schema = driver === 'sqlite' ? sqliteSchema : pgSchema
 
 async function createDb() {
   if (driver === 'sqlite') {
@@ -19,7 +22,7 @@ async function createDb() {
     _sqlite.pragma('foreign_keys = ON')
 
     console.log(`[DB] SQLite: ${dbPath}`)
-    return { db: drizzleSqlite(_sqlite, { schema }) as any, sqlite: _sqlite }
+    return { db: drizzleSqlite(_sqlite, { schema: sqliteSchema }) as any, sqlite: _sqlite }
   }
 
   const connectionString = process.env.DATABASE_URL
@@ -38,7 +41,7 @@ async function createDb() {
   })
 
   console.log('[DB] PostgreSQL')
-  return { db: drizzle(client, { schema }), sqlite: null }
+  return { db: drizzle(client, { schema: pgSchema }), sqlite: null }
 }
 
 const { db, sqlite } = await createDb()

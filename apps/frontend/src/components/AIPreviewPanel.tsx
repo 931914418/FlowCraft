@@ -1,7 +1,6 @@
 import type { AIWorkflowResult } from '@/components/AIChatBar'
 import { NODE_TYPE_META } from '@flowcraft/shared'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { getNodeColor } from '@/lib/node-theme'
 import {
   PlayCircle, Square, Bot, GitBranch, Code, Globe, Table2, Sparkles,
@@ -28,7 +27,7 @@ export function AIPreviewPanel({ result, explanation, onApply, onDiscard, onRege
   }, {})
 
   return (
-    <ScrollArea className="h-full">
+    <div className="space-y-4 px-1">
       <div className="space-y-4">
         {/* Workflow name */}
         <div>
@@ -116,6 +115,6 @@ export function AIPreviewPanel({ result, explanation, onApply, onDiscard, onRege
           </Button>
         </div>
       </div>
-    </ScrollArea>
+    </div>
   )
 }

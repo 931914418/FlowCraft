@@ -158,7 +158,7 @@ export function DebugPanel({ events, onClear, onClose }: DebugPanelProps) {
       </div>
 
       {/* Timeline */}
-      <ScrollArea className="max-h-64">
+      <ScrollArea className="max-h-96">
         <div className="space-y-0 p-3 pl-4">
           {nodeEvents.map((event, index) => (
             <TimelineItem key={`${event.nodeId}-${event.executionId}`} event={event} isLast={index === nodeEvents.length - 1} />
