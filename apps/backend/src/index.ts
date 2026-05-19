@@ -47,11 +47,24 @@ app.onError((err, c) => {
 
 const port = Number(process.env.PORT) || 3002
 
-serve({ fetch: app.fetch, port }, () => {
+async function start() {
+  // SQLite 模式下自动建表和 seed 示例数据
+  if ((process.env.DB_DRIVER || 'postgres') === 'sqlite') {
+    const { initSqlite } = await import('./db/sqlite-migrate')
+    await initSqlite()
+  }
+
+  serve({ fetch: app.fetch, port }, () => {
   console.log(`FlowCraft backend running on http://localhost:${port}`)
   if (!process.env.OPENAI_API_KEY) console.warn('[WARN] OPENAI_API_KEY not set. OpenAI models will fail.')
   if (!process.env.ANTHROPIC_API_KEY) console.warn('[WARN] ANTHROPIC_API_KEY not set. Claude models will fail.')
   if (!process.env.ZHIPU_API_KEY) console.warn('[WARN] ZHIPU_API_KEY not set. GLM models will fail.')
+  })
+}
+
+start().catch((err) => {
+  console.error('Failed to start:', err)
+  process.exit(1)
 })
 
 process.on('SIGTERM', () => {

@@ -51,11 +51,12 @@ export function NodePalette({ onAddNode, aiMode = 'simple' }: NodePaletteProps) 
         return (
           <div
             key={type}
+            title={meta.description}
             draggable={!isFiltered}
             onDragStart={(e) => handleDragStart(e, type)}
             onClick={() => !isFiltered && handleClick(type)}
             className={cn(
-              'flex items-center gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm text-neutral-700 transition-colors',
+              'group relative flex items-center gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm text-neutral-700 transition-colors',
               isFiltered
                 ? 'cursor-not-allowed opacity-30'
                 : 'cursor-grab hover:border-neutral-200 active:cursor-grabbing',
@@ -67,6 +68,12 @@ export function NodePalette({ onAddNode, aiMode = 'simple' }: NodePaletteProps) 
             <span>{label}</span>
             {isFiltered && (
               <span className="ml-auto text-[10px] text-neutral-400">高级模式</span>
+            )}
+            {!isFiltered && (
+              <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-neutral-800 px-2.5 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                {meta.description}
+                <div className="absolute -left-1 top-1/2 -translate-y-1/2 border-4 border-transparent border-r-neutral-800" />
+              </div>
             )}
           </div>
         )
