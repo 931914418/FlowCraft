@@ -1,57 +1,36 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-19T11:00:00Z",
+  "timestamp": "2026-05-19T07:45:15Z",
   "phase": null,
-  "phase_name": "FlowCraft v2 全量实施 + UX 改进 + 数据源可切换",
-  "phase_dir": ".",
+  "phase_name": "API Key 配置功能设计",
+  "phase_dir": ".planning/docs",
   "plan": null,
-  "task": 20,
-  "total_tasks": 20,
+  "task": 1,
+  "total_tasks": 2,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "搭建 vitest 测试框架", "status": "done", "commit": "3f98db4"},
-    {"id": 2, "name": "重构数据契约 — nodeOutputs 单一数据源", "status": "done", "commit": "de17d7a"},
-    {"id": 3, "name": "实现 Condition V2 双格式执行器", "status": "done", "commit": "a474351"},
-    {"id": 4, "name": "编写单元测试", "status": "done", "commit": "a474351"},
-    {"id": 5, "name": "Phase 2 后端 — 节点测试 API + Webhook", "status": "done", "commit": "75045df"},
-    {"id": 6, "name": "Phase 2 前端 — HTTP 测试 + Webhook UI", "status": "done"},
-    {"id": 7, "name": "Phase 3 后端 — DataMapperExecutor", "status": "done", "commit": "406c802"},
-    {"id": 8, "name": "Phase 3 前端 — DataMapper 面板增强", "status": "done"},
-    {"id": 9, "name": "Phase 4 后端 — AI 生成工作流 API", "status": "done"},
-    {"id": 10, "name": "Phase 4 前端 — AI 对话栏", "status": "done", "commit": "d17bf36"},
-    {"id": 11, "name": "Phase 5 后端 — AIProcessorExecutor", "status": "done"},
-    {"id": 12, "name": "Phase 5 前端 — AI 处理面板 + 模式切换", "status": "done"},
-    {"id": 13, "name": "全量代码审查 + 修复", "status": "done", "commit": "e1dab74"},
-    {"id": 14, "name": "UX: 简单/高级模式可视化", "status": "done", "commit": "99fdf3d"},
-    {"id": 15, "name": "UX: AI 生成预览面板（Sheet + AIPreviewPanel）", "status": "done", "commit": "99fdf3d"},
-    {"id": 16, "name": "UX: 执行结果时间线重设计", "status": "done", "commit": "99fdf3d"},
-    {"id": 17, "name": "节点注释 — description + tooltip", "status": "done", "commit": "69ecdd2"},
-    {"id": 18, "name": "DB_DRIVER 环境变量切换 PG/SQLite", "status": "done", "commit": "69ecdd2"},
-    {"id": 19, "name": "3 个示例工作流 + SQLite 自动建表 seed", "status": "done", "commit": "69ecdd2"},
-    {"id": 20, "name": "浏览器端手动验证", "status": "pending"}
+    {"id": 1, "name": "API Key 配置功能设计（brainstorming）", "status": "done", "commit": "9836e39"}
   ],
   "remaining_tasks": [
-    {"id": 20, "name": "浏览器端手动验证 UX 改进 + SQLite 模式全流程", "status": "not_started"}
+    {"id": 2, "name": "Phase 1 实施：数据库 + API + 基础 UI", "status": "not_started"},
+    {"id": 3, "name": "Phase 2 实施：自定义模型 + 偏好设置", "status": "not_started"}
   ],
   "blockers": [
-    {"description": "better-sqlite3 native binding 需要 node-gyp rebuild 编译", "type": "human_action", "workaround": "cd node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3 && npx node-gyp rebuild"}
+    {"description": "智谱 API 额度用完，需等 12:57 重置才能测试 AI 节点", "type": "external", "workaround": "等待重置或配置其他 API Key"}
   ],
   "human_actions_pending": [
-    {"action": "手动浏览器验证 UX 改进", "context": "模式切换可视化、AI预览面板、执行时间线、节点注释 tooltip", "blocking": false},
-    {"action": "测试 SQLite 模式完整 CRUD + 执行", "context": "启动已验证，但创建/编辑/执行工作流未在浏览器中验证", "blocking": false},
-    {"action": "如需 SQLite，先编译 better-sqlite3", "context": "pnpm install 不自动编译，需 node-gyp rebuild（本机已编译成功一次）", "blocking": true}
+    {"action": "决定是否开始 Phase 1 实施", "context": "设计已完成，等待用户确认是否开始实施", "blocking": false}
   ],
   "decisions": [
-    {"decision": "nodeOutputs = 单一数据源, variables = 派生视图", "phase": 1},
-    {"decision": "Condition V1/V2 双执行器，不做自动迁移", "phase": 1},
-    {"decision": "CodeExecutor 需环境变量 ENABLE_CODE_EXECUTION 启用", "phase": 1},
-    {"decision": "Webhook secret 使用 timing-safe 比较", "phase": 2},
-    {"decision": "AI 生成工作流使用 GLM-4.7，简单模式禁止 code 节点", "phase": 4},
-    {"decision": "数据源可切换而非替换 PostgreSQL", "phase": null},
-    {"decision": "drizzle 用 as any 绕过 PG/SQLite 类型差异", "phase": null},
-    {"decision": "3 个示例工作流覆盖入门/中级/高级场景", "phase": null}
+    {"decision": "单用户场景起步，数据库预留 user_id 字段", "rationale": "简化第一版，架构支持未来扩展", "phase": null},
+    {"decision": "全平台支持：OpenAI、Anthropic、智谱 AI、自定义", "rationale": "用户需求最大化", "phase": null},
+    {"decision": "侧边栏抽屉 UI + 齿轮按钮", "rationale": "与现有 AI 预览面板交互一致", "phase": null},
+    {"decision": "明文存储 API Key", "rationale": "自托管场景优先简单，未来 SaaS 再加密", "phase": null},
+    {"decision": "两阶段实施：核心功能(2-3天) → 增强功能(1-2天)", "rationale": "快速验证核心流程，逐步完善", "phase": null}
   ],
-  "uncommitted_files": [],
-  "next_action": "手动浏览器验证 UX 改进 + SQLite 模式全流程，或继续下一个功能需求",
-  "context_notes": "全部 v2 Phase 1-5 + UX 改进 + 数据源可切换 + 节点注释 + 示例工作流已完成并提交。94 个后端测试通过。SQLite 启动和 API 列表查询已验证。"
+  "uncommitted_files": [
+    "ruvector.db (modified)"
+  ],
+  "next_action": "等待用户确认是否开始 Phase 1 实施，或继续其他功能开发",
+  "context_notes": "刚完成 API Key 配置功能的设计研讨（superpowers:brainstorming），设计文档已写入 .planning/docs/2025-05-19-api-key-settings-design.md。同时修复了 SQLite 兼容性问题（gen_random_uuid、Date 序列化、外键级联删除）和前端滚动 UX 问题，已提交为 commit 9836e39。后端服务运行在 localhost:3002 (SQLite 模式)，前端在 localhost:5175。智谱 API 额度已用完，需等 12:57 重置。"
 }
