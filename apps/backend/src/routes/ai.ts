@@ -1,10 +1,57 @@
 import { Hono } from 'hono'
 import { generateText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
+import { db, schema } from '../db'
+import { eq, and } from 'drizzle-orm'
 
 const app = new Hono()
 
-function getZhipuClient() {
+// API Key 缓存
+let apiKeyCache: Map<string, { key: string; baseUrl?: string; expiry: number }> = new Map()
+const CACHE_TTL = 5 * 60 * 1000 // 5 分钟
+
+async function getApiKeyFromDb(provider: string): Promise<{ key: string; baseUrl?: string } | null> {
+  const cached = apiKeyCache.get(provider)
+  if (cached && cached.expiry > Date.now()) {
+    return { key: cached.key, baseUrl: cached.baseUrl }
+  }
+
+  try {
+    const keys = await db
+      .select()
+      .from(schema.apiKeys)
+      .where(and(
+        eq(schema.apiKeys.provider, provider),
+        eq(schema.apiKeys.isEnabled, true)
+      ))
+      .limit(1)
+
+    if (keys.length > 0) {
+      apiKeyCache.set(provider, {
+        key: keys[0].apiKey,
+        baseUrl: keys[0].baseUrl || undefined,
+        expiry: Date.now() + CACHE_TTL,
+      })
+      return { key: keys[0].apiKey, baseUrl: keys[0].baseUrl || undefined }
+    }
+  } catch (err) {
+    console.error(`[AI Route] Failed to fetch API key from DB for provider ${provider}:`, err)
+  }
+
+  return null
+}
+
+async function getZhipuClient() {
+  // 优先从数据库获取
+  const dbKey = await getApiKeyFromDb('zhipu')
+  if (dbKey) {
+    return createOpenAI({
+      apiKey: dbKey.key,
+      baseURL: dbKey.baseUrl || 'https://open.bigmodel.cn/api/coding/paas/v4',
+    })
+  }
+
+  // Fallback 到环境变量
   if (!process.env.ZHIPU_API_KEY) return null
   return createOpenAI({
     apiKey: process.env.ZHIPU_API_KEY,

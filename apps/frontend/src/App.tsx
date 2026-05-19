@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import EditorPage from '@/pages/EditorPage'
 import ListView from '@/pages/ListView'
+import SettingsPage from '@/pages/SettingsPage'
 
 export default function App() {
   return (
@@ -9,6 +10,7 @@ export default function App() {
         <Route path="/" element={<ListView />} />
         <Route path="/editor" element={<EditorPage />} />
         <Route path="/editor/:id" element={<EditorPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/404" element={<NotFound />} />
         <Route path="*" element={<Navigate to="/404" replace />} />
       </Routes>

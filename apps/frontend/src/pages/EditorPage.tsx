@@ -15,13 +15,14 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Loader2, Save, Play, ArrowLeft, Webhook, Copy, RefreshCw, ChevronDown, X } from 'lucide-react'
+import { Loader2, Save, Play, ArrowLeft, Webhook, Copy, RefreshCw, ChevronDown, X, Settings } from 'lucide-react'
 
 import { NodePalette } from '@/components/NodePalette'
 import { PropertyPanel } from '@/components/PropertyPanel'
 import { DebugPanel } from '@/components/DebugPanel'
 import { AIChatBar, type AIWorkflowResult } from '@/components/AIChatBar'
 import { AIPreviewPanel } from '@/components/AIPreviewPanel'
+import { SettingsSidebar } from '@/components/SettingsSidebar'
 import { Sheet } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 
@@ -89,6 +90,7 @@ export default function EditorPage() {
     explanation: string
   } | null>(null)
   const [aiGenerating, setAiGenerating] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -474,6 +476,14 @@ export default function EditorPage() {
         />
         <div className="ml-auto flex items-center gap-2">
           <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSettings(true)}
+            title="设置"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             onClick={() => setShowWebhookPanel(!showWebhookPanel)}
@@ -640,6 +650,12 @@ export default function EditorPage() {
           />
         )}
       </Sheet>
+
+      {/* Settings Sidebar */}
+      <SettingsSidebar
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
     </div>
   )
 }

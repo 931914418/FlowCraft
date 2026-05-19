@@ -3,6 +3,8 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import type { NodeType } from '@flowcraft/shared'
 import type { DAGNode } from './dag'
+import { db, schema } from '../db'
+import { eq, and } from 'drizzle-orm'
 
 export interface ExecutionContext {
   variables: Map<string, unknown>
@@ -42,6 +44,73 @@ const zhipuClient = process.env.ZHIPU_API_KEY ? createOpenAI({
   baseURL: 'https://open.bigmodel.cn/api/coding/paas/v4',
 }) : null
 
+// 从数据库获取启用的 API Key（缓存 5 分钟）
+let apiKeyCache: Map<string, { key: string; baseUrl?: string; expiry: number }> = new Map()
+const CACHE_TTL = 5 * 60 * 1000 // 5 分钟
+
+async function getApiKeyFromDb(provider: string): Promise<{ key: string; baseUrl?: string } | null> {
+  const cached = apiKeyCache.get(provider)
+  if (cached && cached.expiry > Date.now()) {
+    return { key: cached.key, baseUrl: cached.baseUrl }
+  }
+
+  try {
+    const keys = await db
+      .select()
+      .from(schema.apiKeys)
+      .where(and(
+        eq(schema.apiKeys.provider, provider),
+        eq(schema.apiKeys.isEnabled, true)
+      ))
+      .limit(1)
+
+    if (keys.length > 0) {
+      apiKeyCache.set(provider, {
+        key: keys[0].apiKey,
+        baseUrl: keys[0].baseUrl || undefined,
+        expiry: Date.now() + CACHE_TTL,
+      })
+      return { key: keys[0].apiKey, baseUrl: keys[0].baseUrl || undefined }
+    }
+  } catch (err) {
+    console.error(`[Engine] Failed to fetch API key from DB for provider ${provider}:`, err)
+  }
+
+  return null
+}
+
+async function getModelClient(model: string) {
+  // 优先从数据库获取 API Key
+  if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
+    const dbKey = await getApiKeyFromDb('openai')
+    if (dbKey) {
+      return createOpenAI({ apiKey: dbKey.key }).chat(model)
+    }
+    if (openaiClient) return openaiClient.chat(model)
+    throw new Error('OPENAI_API_KEY not configured in database or environment')
+  }
+
+  if (model.startsWith('glm-') || model.startsWith('GLM-')) {
+    const dbKey = await getApiKeyFromDb('zhipu')
+    if (dbKey) {
+      return createOpenAI({
+        apiKey: dbKey.key,
+        baseURL: dbKey.baseUrl || 'https://open.bigmodel.cn/api/coding/paas/v4',
+      }).chat(model)
+    }
+    if (zhipuClient) return zhipuClient.chat(model)
+    throw new Error('ZHIPU_API_KEY not configured in database or environment')
+  }
+
+  // Claude 模型
+  const dbKey = await getApiKeyFromDb('anthropic')
+  if (dbKey) {
+    return createAnthropic({ apiKey: dbKey.key })(model)
+  }
+  if (anthropicClient) return anthropicClient(model)
+  throw new Error('ANTHROPIC_API_KEY not configured in database or environment')
+}
+
 function getModelSdk(model: string) {
   if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
     if (!openaiClient) throw new Error('OPENAI_API_KEY not configured')
@@ -60,7 +129,7 @@ export class LLMExecutor implements NodeExecutor {
     const { model, prompt, system, temperature } = node.config as Record<string, any>
     const renderedPrompt = renderTemplate(String(prompt || ''), context)
 
-    const sdk = getModelSdk(String(model || 'gpt-4o'))
+    const sdk = await getModelClient(String(model || 'gpt-4o'))
 
     const result = await generateText({
       model: sdk,
@@ -304,7 +373,7 @@ export class AIProcessorExecutor implements NodeExecutor {
       prompt += `\n\n输出格式要求：${outputSchema}`
     }
 
-    const sdk = getModelSdk(String(model || 'GLM-4.7'))
+    const sdk = await getModelClient(String(model || 'GLM-4.7'))
 
     const result = await generateText({
       model: sdk,
