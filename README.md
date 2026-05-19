@@ -1,6 +1,6 @@
 # FlowCraft
 
-Visual drag-and-drop AI Agent workflow builder. TypeScript full-stack.
+可视化拖拽式 AI Agent 工作流构建器。TypeScript 全栈。
 
 ## 快速开始
 
@@ -12,29 +12,23 @@ git clone <repo-url> && cd flowcraft
 pnpm install
 ```
 
-### 两种模式选择
-
-**模式 1：SQLite（推荐，零配置）**
+### SQLite 模式（推荐，零配置）
 
 ```bash
-# 直接启动，自动使用 SQLite 数据库
-pnpm dev:sqlite
+# 启动后端（SQLite 自动建表 + seed 示例数据）
+cd apps/backend && DB_DRIVER=sqlite npm run dev
+
+# 启动前端（另一个终端）
+cd apps/frontend && npm run dev
 ```
 
-**模式 2：PostgreSQL**
+### PostgreSQL 模式
 
 ```bash
-# 启动 PostgreSQL
 docker compose up -d postgres
-
-# 配置环境变量
 cp .env.example .env
 # 编辑 .env 设置 DATABASE_URL
-
-# 推送数据库 Schema
 pnpm db:push
-
-# 启动开发服务器
 pnpm dev
 ```
 
@@ -51,6 +45,26 @@ Frontend (Vite + React Flow)  →  Backend (Hono + DAG Engine)  →  PostgreSQL 
 - **Backend**: Hono + Vercel AI SDK + Drizzle ORM
 - **Database**: PostgreSQL 16 或 SQLite（零配置）
 
+## 节点类型
+
+| 类型 | 说明 |
+|------|------|
+| Start | 流程入口，无配置 |
+| End | 流程出口，汇总所有节点输出 |
+| LLM | 大模型调用（OpenAI / Anthropic / 智谱 / 自定义） |
+| Condition | 条件分支，根据字段值路由到 true/false 分支 |
+| HTTP | 发起 HTTP 请求（GET / POST / PUT / DELETE） |
+| Data Mapper | 字段映射，从上游节点提取指定路径的数据 |
+| AI Processor | AI 数据处理，根据指令对上游数据进行智能处理 |
+| Code | 执行 JavaScript 代码（默认禁用，需 ENABLE_CODE_EXECUTION=1） |
+
+## AI 工作流生成
+
+支持通过自然语言描述自动生成工作流：
+
+- **简单模式**: 自动生成不含代码节点的基础工作流
+- **高级模式**: 支持所有节点类型，可生成复杂的多分支、多步骤工作流
+
 ## API Key 配置
 
 FlowCraft 支持通过 Web UI 配置 API Key，无需手动编辑环境变量。
@@ -64,7 +78,7 @@ FlowCraft 支持通过 Web UI 配置 API Key，无需手动编辑环境变量。
 
 ### 配置步骤
 
-1. 点击编辑器右上角的 **⚙️ 设置** 按钮
+1. 点击编辑器右上角 **⚙ 设置** 按钮
 2. 在 **API Keys** 标签页点击 **添加**
 3. 选择服务商并输入 API Key
 4. 点击 **测试连接** 验证配置
@@ -72,28 +86,19 @@ FlowCraft 支持通过 Web UI 配置 API Key，无需手动编辑环境变量。
 
 ### 环境变量回退
 
-如果数据库中没有配置 API Key，系统会自动回退到环境变量：
+如果数据库中没有配置 API Key，系统自动回退到环境变量：
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `ZHIPU_API_KEY`
 
-## Node Types
-
-| Type | Icon | Description |
-|------|------|-------------|
-| LLM | Bot | Call OpenAI/Anthropic models |
-| Condition | GitBranch | Branch on expression evaluation |
-| Code | Code | Execute safe JavaScript |
-| HTTP | Globe | Make API requests |
-
 ## API 端点
 
-所有端点都在 `/api/` 路径下。如果配置了 `API_AUTH_KEY`，需要设置 `x-api-key` 请求头。
+所有端点在 `/api/` 路径下。配置 `API_AUTH_KEY` 后需设置 `x-api-key` 请求头。
 
 ### 工作流管理
 
 | 方法 | 路径 | 描述 |
-|--------|------|-------------|
+|------|------|------|
 | POST | /api/workflows | 创建工作流 |
 | GET | /api/workflows | 列出所有工作流 |
 | GET | /api/workflows/:id | 获取工作流详情 |
@@ -102,34 +107,34 @@ FlowCraft 支持通过 Web UI 配置 API Key，无需手动编辑环境变量。
 | POST | /api/workflows/:id/run | 执行工作流 |
 | GET | /api/workflows/execution/:id/stream | SSE 执行流 |
 
-### 设置管理（API Key 配置）
+### AI 生成
 
 | 方法 | 路径 | 描述 |
-|--------|------|-------------|
+|------|------|------|
+| POST | /api/ai/generate-workflow | AI 生成工作流（参数：description, mode） |
+
+### 设置管理
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
 | GET | /api/settings/keys | 获取所有 API Key（脱敏） |
-| POST | /api/settings/keys | 添加新的 API Key |
+| POST | /api/settings/keys | 添加 API Key |
 | PUT | /api/settings/keys/:id | 更新 API Key |
 | DELETE | /api/settings/keys/:id | 删除 API Key |
-| POST | /api/settings/keys/:id/test | 测试 API Key 连接 |
-| GET | /api/settings/models | 获取所有模型配置 |
+| POST | /api/settings/keys/:id/test | 测试连接 |
+| GET | /api/settings/models | 获取模型列表 |
 | POST | /api/settings/models | 添加自定义模型 |
 | DELETE | /api/settings/models/:id | 删除模型 |
-| GET | /api/settings/preferences | 获取用户偏好设置 |
-| PUT | /api/settings/preferences | 更新用户偏好设置 |
+| GET | /api/settings/preferences | 获取偏好设置 |
+| PUT | /api/settings/preferences | 更新偏好设置 |
 
 ### 其他
 
 | 方法 | 路径 | 描述 |
-|--------|------|-------------|
+|------|------|------|
 | GET | /api/models | 列出可用模型 |
 | GET | /api/tools | 列出可用工具 |
 | GET | /health | 健康检查 |
-
-## Docker
-
-```bash
-docker compose up -d
-```
 
 ## License
 
